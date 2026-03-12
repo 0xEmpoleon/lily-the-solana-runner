@@ -1,0 +1,16 @@
+# Dependencies
+node_modules
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Build
+dist
+tmp
+.gemini
+.agents
+
+# Docker Volumes
+mongodb_data

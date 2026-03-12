@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mars-mongodb
+    ports:
+      - "27020:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - mars-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mars-backend
+    ports:
+      - "8055:8052"
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+    networks:
+      - mars-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mars-frontend
+    ports:
+      - "4043:3000"
+    env_file:
+      - .env
+    depends_on:
+      - backend
+    networks:
+      - mars-network
+
+networks:
+  mars-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
