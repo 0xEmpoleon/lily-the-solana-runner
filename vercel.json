@@ -1,0 +1,10 @@
+{
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "npm install",
+  "rewrites": [
+    { "source": "/api/scores", "destination": "/api/scores" },
+    { "source": "/api/leaderboard", "destination": "/api/leaderboard" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

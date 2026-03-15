@@ -2,114 +2,186 @@ import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGameState } from '../store/useGameState';
+import { soundEngine } from '../../../utils/sound';
+import { haptics } from '../../../utils/haptics';
+import { particleEvents } from '../../../utils/particleEvents';
+
+interface CoinItem {
+  id: number;
+  lane: number;
+  y: number;
+  z: number;
+  collected: boolean;
+  isStar: boolean;
+}
 
 interface CollectibleManagerProps {
   playerPosRef: React.MutableRefObject<THREE.Vector3>;
 }
 
-export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPosRef }) => {
-  const { speed, gameState, addCoin } = useGameState();
-  const [coins, setCoins] = useState<{ id: number; lane: number; y: number; z: number; collected: boolean }[]>([]);
-  const nextZ = useRef(-50);
-  const nextId = useRef(0);
-  
-  const coinGeo = useRef(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16));
-  const coinMat = useRef(new THREE.MeshStandardMaterial({ color: "#FFD700", metalness: 0.8, roughness: 0.2 }));
+// Shared geometries
+const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
+const coinMat = new THREE.MeshStandardMaterial({ color: '#FFD700', metalness: 0.8, roughness: 0.2 });
+const starMat = new THREE.MeshStandardMaterial({
+  color: '#fde047', emissive: '#f59e0b', emissiveIntensity: 0.8,
+  metalness: 0.5, roughness: 0.2,
+});
 
-  useFrame((_state, delta) => {
+function makeStarGeo(): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  const outerR = 0.5, innerR = 0.22, pts = 5;
+  for (let i = 0; i < pts * 2; i++) {
+    const angle = (i * Math.PI) / pts - Math.PI / 2;
+    const r = i % 2 === 0 ? outerR : innerR;
+    if (i === 0) shape.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
+    else shape.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+  }
+  shape.closePath();
+  return new THREE.ExtrudeGeometry(shape, { depth: 0.1, bevelEnabled: false });
+}
+const starGeo = makeStarGeo();
+
+const CoinMesh = ({ c }: { c: CoinItem }) => {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame((s) => { if (ref.current) ref.current.rotation.z = s.clock.elapsedTime * 3; });
+  return (
+    <mesh ref={ref} position={[c.lane * 2.5, c.y, c.z]}
+      rotation={[Math.PI / 2, 0, 0]} geometry={coinGeo} material={coinMat} castShadow />
+  );
+};
+
+const StarMesh = ({ c }: { c: CoinItem }) => {
+  const ref = useRef<THREE.Group>(null);
+  const baseY = useRef(c.y);
+  useFrame((s) => {
+    if (ref.current) {
+      ref.current.rotation.y = s.clock.elapsedTime * 2;
+      ref.current.position.y = baseY.current + Math.sin(s.clock.elapsedTime * 3) * 0.15;
+    }
+  });
+  return (
+    <group ref={ref} position={[c.lane * 2.5, c.y, c.z]}>
+      <mesh geometry={starGeo} material={starMat} castShadow position={[-0.5, -0.5, 0]} />
+      <pointLight color="#fde047" intensity={5} distance={3} decay={2} />
+    </group>
+  );
+};
+
+export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPosRef }) => {
+  const { speed, gameState, addCoin, activePowerup, incrementCombo, combo, updateChallenge } = useGameState();
+  const [coins, setCoins] = useState<CoinItem[]>([]);
+  const nextZ   = useRef(-50);
+  const nextId  = useRef(0);
+  const lastComboSound = useRef(0);
+
+  useFrame((_s, delta) => {
     if (gameState !== 'PLAYING') return;
 
-    // Spawn Logic (Arcs over barriers, lines on ground)
+    // Spawn
     if (nextZ.current > -200) {
-       const lane = Math.floor(Math.random() * 3) - 1;
-       const rand = Math.random();
-       
-       if (rand < 0.4) { // Increased to 40% jump arcs
-           // Jump Arc
-           for (let i = 0; i < 7; i++) { // Increased length
-               setCoins(prev => [...prev, {
-                  id: nextId.current++,
-                  lane,
-                  y: 1 + Math.sin((i/6) * Math.PI) * 2, // Arc up to y=3
-                  z: nextZ.current - (i * 2),
-                  collected: false
-               }]);
-           }
-           nextZ.current -= 25;
-       } else if (rand < 0.8) { // Increased to 40% lines
-           // Line on ground
-           for (let i = 0; i < 10; i++) { // Longer lines
-               setCoins(prev => [...prev, {
-                  id: nextId.current++,
-                  lane,
-                  y: 0.5,
-                  z: nextZ.current - (i * 2),
-                  collected: false
-               }]);
-           }
-           nextZ.current -= 35;
-       } else {
-           nextZ.current -= 15; // Shorter empty gap
-       }
+      const lane = Math.floor(Math.random() * 3) - 1;
+      const r = Math.random();
+      if (r < 0.07) {
+        // Star
+        setCoins(p => [...p, { id: nextId.current++, lane, y: 1.0, z: nextZ.current, collected: false, isStar: true }]);
+        nextZ.current -= 20;
+      } else if (r < 0.43) {
+        // Jump arc
+        for (let i = 0; i < 7; i++) {
+          setCoins(p => [...p, {
+            id: nextId.current++, lane,
+            y: 1 + Math.sin((i / 6) * Math.PI) * 2,
+            z: nextZ.current - i * 2, collected: false, isStar: false,
+          }]);
+        }
+        nextZ.current -= 25;
+      } else if (r < 0.83) {
+        // Ground line
+        for (let i = 0; i < 10; i++) {
+          setCoins(p => [...p, {
+            id: nextId.current++, lane, y: 0.5,
+            z: nextZ.current - i * 2, collected: false, isStar: false,
+          }]);
+        }
+        nextZ.current -= 35;
+      } else {
+        nextZ.current -= 15;
+      }
     }
 
-    // Move, Rotate, and Collect Logic
+    // Move + collect
     setCoins(prev => {
-       const pPos = playerPosRef.current;
-       let pickedCoins = 0;
+      const pPos = playerPosRef.current;
+      const hasMagnet = activePowerup === 'magnet';
+      let pickedCoins = 0;
+      let pickedStars = 0;
+      const positions: Array<{ x: number; y: number; z: number; star: boolean }> = [];
 
-       const nextList = prev.map(c => {
-          if (c.collected) return { ...c, z: c.z + speed * delta };
+      const zRange = hasMagnet ? 4.0 : 0.5;
+      const xRange = hasMagnet ? 2.8 : 1.0;
+      const yRange = hasMagnet ? 3.0 : 1.5;
 
-          const newZ = c.z + speed * delta;
-          
-          // Collision Check
-          if (newZ > -0.5 && newZ < 0.5) { // In Z range
-             const cX = c.lane * 2.5; 
-             if (Math.abs(cX - pPos.x) < 1.0 && Math.abs(c.y - pPos.y) < 1.5) { // Hitbox check
-                pickedCoins++;
-                return { ...c, z: newZ, collected: true };
-             }
+      const next = prev.map(c => {
+        if (c.collected) return { ...c, z: c.z + speed * delta };
+        const newZ = c.z + speed * delta;
+        if (newZ > -zRange && newZ < zRange) {
+          const cX = c.lane * 2.5;
+          if (Math.abs(cX - pPos.x) < xRange && Math.abs(c.y - pPos.y) < yRange) {
+            positions.push({ x: cX, y: c.y, z: newZ, star: c.isStar });
+            if (c.isStar) pickedStars++; else pickedCoins++;
+            return { ...c, z: newZ, collected: true };
           }
-          return { ...c, z: newZ };
-       });
+        }
+        return { ...c, z: newZ };
+      });
 
-       if (pickedCoins > 0) {
-           for(let i=0; i<pickedCoins; i++) {
-               addCoin(); // Zustand will handle score + coin count
-           }
-       }
+      // Award + effects
+      for (let i = 0; i < pickedCoins; i++) {
+        addCoin();
+        incrementCombo();
+        updateChallenge('coins', 1);
+      }
+      for (let i = 0; i < pickedStars; i++) {
+        for (let j = 0; j < 5; j++) addCoin();
+        incrementCombo();
+        updateChallenge('coins', 5);
+      }
 
-       return nextList.filter(c => c.z < 20 && !c.collected); // Remove off-screen or collected
+      const totalPicked = pickedCoins + pickedStars;
+      if (totalPicked > 0) {
+        // Sound
+        if (pickedStars > 0) soundEngine.star();
+        else soundEngine.coin();
+        haptics.coin();
+
+        // Particles per collected position
+        positions.forEach(p => {
+          particleEvents.emit({
+            x: p.x, y: p.y, z: p.z,
+            color: p.star ? '#fde047' : '#FFD700',
+            count: p.star ? 12 : 5,
+          });
+        });
+
+        // Combo sound throttled (every 250 ms)
+        const now = performance.now();
+        if (combo >= 4 && now - lastComboSound.current > 250) {
+          const level = combo >= 20 ? 5 : combo >= 10 ? 4 : combo >= 5 ? 3 : 2;
+          soundEngine.combo(level);
+          lastComboSound.current = now;
+        }
+      }
+
+      return next.filter(c => c.z < 20 && !c.collected);
     });
   });
 
   return (
     <group>
-       {coins.map(c => (
-         <CoinMesh key={c.id} c={c} geo={coinGeo.current} mat={coinMat.current} />
-       ))}
+      {coins.map(c => c.isStar
+        ? <StarMesh key={c.id} c={c} />
+        : <CoinMesh key={c.id} c={c} />
+      )}
     </group>
   );
-};
-
-// Extracted to use its own useFrame for rotation
-const CoinMesh = ({ c, geo, mat }: { c: any, geo: THREE.CylinderGeometry, mat: THREE.Material }) => {
-   const ref = useRef<THREE.Mesh>(null);
-   useFrame((state) => {
-      if (ref.current) {
-         ref.current.rotation.z = state.clock.elapsedTime * 3;
-      }
-   });
-
-   return (
-      <mesh 
-          ref={ref}
-          position={[c.lane * 2.5, c.y, c.z]} 
-          rotation={[Math.PI/2, 0, 0]} 
-          geometry={geo}
-          material={mat}
-          castShadow
-       />
-   );
 };
