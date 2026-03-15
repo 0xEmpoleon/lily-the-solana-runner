@@ -2,12 +2,12 @@ import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGameState } from '../store/useGameState';
 
-const CHUNK_LENGTH  = 100;
+const CHUNK_LENGTH   = 100;
 const VISIBLE_CHUNKS = 4;
 const LANE_WIDTH     = 2.5;
 
 // ── Theme definitions ─────────────────────────────────────────────────────
-type ThemeName = 'mars' | 'desert' | 'forest';
+type ThemeName = 'mars' | 'desert' | 'forest' | 'space';
 
 const THEMES: Record<ThemeName, {
   ground: string; wall: string; rail: string;
@@ -35,15 +35,26 @@ const THEMES: Record<ThemeName, {
     ground: '#2d5a1b', wall: '#3d2b1a', rail: '#4a3728',
     skyColor: '#001200', fogColor: '#0a2200',
     decoration: [
-      { color: '#2d6e1b', shape: 'cone', scale: [0.6, 3.0, 0.6], offsetX:  9.5 },
+      { color: '#2d6e1b', shape: 'cone', scale: [0.6, 3.0, 0.6],   offsetX:  9.5 },
       { color: '#1f5c12', shape: 'cone', scale: [0.45, 2.2, 0.45], offsetX: -9.5 },
       { color: '#3d2b1a', shape: 'box',  scale: [0.4, 2.5, 0.4],   offsetX:  10.5 },
       { color: '#3d2b1a', shape: 'box',  scale: [0.4, 2.5, 0.4],   offsetX: -10.5 },
     ],
   },
+  space: {
+    ground: '#1a1a2e', wall: '#16213e', rail: '#0f3460',
+    skyColor: '#000010', fogColor: '#000020',
+    decoration: [
+      { color: '#e94560', shape: 'cone', scale: [0.2, 1.5, 0.2], offsetX:  9.5 },
+      { color: '#0f3460', shape: 'box',  scale: [0.5, 1.8, 0.5], offsetX: -9.5 },
+      { color: '#533483', shape: 'box',  scale: [0.3, 2.2, 0.3], offsetX:  10.5 },
+      { color: '#e94560', shape: 'cone', scale: [0.15, 1.0, 0.15], offsetX: -10.5 },
+    ],
+  },
 };
 
 function getTheme(score: number): ThemeName {
+  if (score >= 2500) return 'space';
   if (score >= 1000) return 'forest';
   if (score >= 400)  return 'desert';
   return 'mars';
@@ -122,24 +133,24 @@ const TrackChunk: React.FC<ChunkProps> = ({ positionZ, theme }) => {
 
 // ── Manager ───────────────────────────────────────────────────────────────
 export const TrackManager: React.FC = () => {
-  const { speed, gameState, addScore, score } = useGameState();
+  const { speed, speedScale, gameState, addScore, score } = useGameState();
   const [chunks, setChunks] = useState<{ id: number; z: number }[]>(
     Array.from({ length: VISIBLE_CHUNKS }).map((_, i) => ({ id: i, z: -i * CHUNK_LENGTH }))
   );
   const nextChunkId      = useRef(VISIBLE_CHUNKS);
   const distanceTraveled = useRef(0);
-  // Only recompute theme when score crosses a threshold (every 50 pts)
   const themeRef = useRef<ThemeName>('mars');
   themeRef.current = getTheme(score);
   const theme = themeRef.current;
 
   useFrame((_state, delta) => {
     if (gameState !== 'PLAYING') return;
+    const effectiveSpeed = speed * speedScale;
 
     setChunks(current => {
       let needsNew = false;
       const moved = current.map(c => {
-        const z = c.z + speed * delta;
+        const z = c.z + effectiveSpeed * delta;
         if (z > CHUNK_LENGTH) needsNew = true;
         return { ...c, z };
       });
@@ -150,7 +161,7 @@ export const TrackManager: React.FC = () => {
       return filtered;
     });
 
-    distanceTraveled.current += speed * delta;
+    distanceTraveled.current += effectiveSpeed * delta;
     if (distanceTraveled.current > 10) {
       addScore(1);
       distanceTraveled.current = 0;

@@ -43,6 +43,12 @@ class SoundEngine {
     this.osc('sine', 280, 560, 0.18, 0.25);
   }
 
+  doubleJump() {
+    // Higher-pitched, snappier second jump
+    this.osc('sine', 560, 1120, 0.12, 0.2);
+    this.osc('triangle', 880, 1200, 0.08, 0.1, 0.05);
+  }
+
   land() {
     this.osc('triangle', 160, 80, 0.12, 0.15);
   }

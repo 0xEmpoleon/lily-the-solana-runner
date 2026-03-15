@@ -14,21 +14,23 @@ interface PlayerProps {
   hitboxRef: React.MutableRefObject<{ y: number; height: number }>;
 }
 
-const LANE_WIDTH   = 2.5;
-const GRAVITY      = -45;
-const JUMP_FORCE   = 15;
+const LANE_WIDTH    = 2.5;
+const GRAVITY       = -45;
+const JUMP_FORCE    = 15;
+const JUMP2_FORCE   = 11;   // double-jump is slightly weaker
 const ROLL_DURATION = 0.8;
 
 const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
-  const groupRef    = useRef<THREE.Group>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const { gameState, activePowerup, character } = useGameState();
 
-  const [lane, setLane]             = useState(0);
+  const [lane, setLane]               = useState(0);
   const [playerState, setPlayerState] = useState<'RUN' | 'JUMP' | 'ROLL' | 'STUMBLE'>('RUN');
 
   const velocityY   = useRef(0);
   const rollTimer   = useRef(0);
   const wasAirborne = useRef(false);
+  const jumpsLeft   = useRef(2);   // 2 = can jump twice (ground jump + double jump)
 
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -37,13 +39,19 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
     if (gameState !== 'PLAYING') return;
 
     const handleJump = () => {
-      if (groupRef.current && groupRef.current.position.y <= 0.01) {
-        velocityY.current = JUMP_FORCE;
-        setPlayerState('JUMP');
+      if (jumpsLeft.current <= 0) return;
+      const isDoubleJump = groupRef.current ? groupRef.current.position.y > 0.01 : false;
+      velocityY.current = isDoubleJump ? JUMP2_FORCE : JUMP_FORCE;
+      jumpsLeft.current--;
+      setPlayerState('JUMP');
+      if (isDoubleJump) {
+        soundEngine.doubleJump();
+        haptics.medium();
+      } else {
         soundEngine.jump();
         haptics.jump();
-        wasAirborne.current = true;
       }
+      wasAirborne.current = true;
     };
 
     const handleRoll = () => {
@@ -57,10 +65,10 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft')              setLane(l => Math.max(-1, l - 1));
-      if (e.key === 'ArrowRight')             setLane(l => Math.min(1,  l + 1));
+      if (e.key === 'ArrowLeft')                setLane(l => Math.max(-1, l - 1));
+      if (e.key === 'ArrowRight')               setLane(l => Math.min(1,  l + 1));
       if (e.key === 'ArrowUp' || e.key === ' ') handleJump();
-      if (e.key === 'ArrowDown')              handleRoll();
+      if (e.key === 'ArrowDown')                handleRoll();
     };
 
     const handleTouchStart = (e: TouchEvent) => {
@@ -109,6 +117,7 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
         wasAirborne.current = false;
       }
       velocityY.current = 0;
+      jumpsLeft.current = 2;  // reset double-jump on landing
       if (playerState === 'JUMP') setPlayerState('RUN');
     } else {
       wasAirborne.current = true;
@@ -128,15 +137,15 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
     };
   });
 
-  // Invincibility: pulsing opacity
   const isInvincible = activePowerup === 'invincible';
   const hasShield    = activePowerup === 'shield';
+  const isSlowMo     = activePowerup === 'slowmo';
 
   return (
     <group ref={groupRef}>
       {/* Shield glow ring */}
       {hasShield && (
-        <mesh rotation={[0, 0, 0]}>
+        <mesh>
           <torusGeometry args={[1.0, 0.08, 8, 32]} />
           <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={3} transparent opacity={0.7} />
         </mesh>
@@ -147,6 +156,19 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
           <sphereGeometry args={[1.2, 12, 12]} />
           <meshStandardMaterial color="#facc15" emissive="#f59e0b" emissiveIntensity={1.5} transparent opacity={0.15} />
         </mesh>
+      )}
+      {/* Slow-mo trail rings */}
+      {isSlowMo && (
+        <>
+          <mesh rotation={[0, 0, 0]}>
+            <torusGeometry args={[0.9, 0.04, 8, 32]} />
+            <meshStandardMaterial color="#4ade80" emissive="#4ade80" emissiveIntensity={3} transparent opacity={0.6} />
+          </mesh>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.9, 0.04, 8, 32]} />
+            <meshStandardMaterial color="#4ade80" emissive="#4ade80" emissiveIntensity={2} transparent opacity={0.4} />
+          </mesh>
+        </>
       )}
       {character === 'bear' ? (
         <BearCharacter playerState={playerState} />

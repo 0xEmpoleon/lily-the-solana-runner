@@ -6,6 +6,7 @@ import { Train, LowBarrier, HighBarrier, SpikeRoller } from './Obstacles';
 import { soundEngine } from '../../../utils/sound';
 import { haptics } from '../../../utils/haptics';
 import { particleEvents } from '../../../utils/particleEvents';
+import { scorePopupEvents } from '../../../utils/scorePopupEvents';
 
 type ObstacleType = 'TRAIN_STATIC' | 'TRAIN_MOVING' | 'LOW_BARRIER' | 'HIGH_BARRIER' | 'SPIKE_ROLLER';
 
@@ -18,6 +19,7 @@ type ObstacleData = {
   height: number;
   depth: number;
   isHit: boolean;
+  nearMissChecked: boolean;
 };
 
 interface ObstacleManagerProps {
@@ -30,12 +32,11 @@ interface ObstacleManagerProps {
 export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
   playerPosRef, playerHitboxRef, onStumble, onCrash,
 }) => {
-  const { speed, gameState, score, activePowerup, breakCombo } = useGameState();
+  const { speed, speedScale, gameState, score, activePowerup, breakCombo, addScore } = useGameState();
   const [obstacles, setObstacles] = useState<ObstacleData[]>([]);
   const nextZ   = useRef(-100);
   const nextId  = useRef(0);
 
-  // Gap shrinks as score grows
   const getGap = () => {
     const base = Math.max(14, 40 - Math.floor(score / 200));
     return base + Math.random() * base * 0.5;
@@ -43,7 +44,9 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
 
   useFrame((_s, delta) => {
     if (gameState !== 'PLAYING') return;
+    const effectiveSpeed = speed * speedScale;
 
+    // ── Spawn ──────────────────────────────────────────────────────────
     if (nextZ.current > -300) {
       const lane = Math.floor(Math.random() * 3) - 1;
       const r    = Math.random();
@@ -56,19 +59,36 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
       else if (r < 0.82) { type = 'TRAIN_MOVING'; }
       else                { type = 'TRAIN_STATIC'; }
 
-      setObstacles(p => [...p, { id: nextId.current++, type, lane, z: nextZ.current, width, height, depth, isHit: false }]);
+      setObstacles(p => [...p, {
+        id: nextId.current++, type, lane, z: nextZ.current,
+        width, height, depth, isHit: false, nearMissChecked: false,
+      }]);
       nextZ.current -= getGap();
     }
 
+    // ── Move + collision ───────────────────────────────────────────────
     setObstacles(prev => {
       const pPos   = playerPosRef.current;
       const pHit   = playerHitboxRef.current;
       let hasCrashed = false;
 
       const nextList = prev.map(obs => {
-        const moveSpeed = obs.type === 'TRAIN_MOVING' ? speed * 1.5 : speed;
+        const moveSpeed = obs.type === 'TRAIN_MOVING' ? effectiveSpeed * 1.5 : effectiveSpeed;
         const newZ = obs.z + moveSpeed * delta;
 
+        // Near-miss detection: obstacle just passed player (crosses z=0 from behind)
+        if (!obs.isHit && !obs.nearMissChecked && obs.z < 0 && newZ >= 0.5) {
+          const obsX = obs.lane * 2.5;
+          const dist = Math.abs(obsX - pPos.x);
+          if (dist >= 1.1 && dist < 2.4) {
+            addScore(5);
+            scorePopupEvents.emit({ text: 'NEAR MISS! +5', color: '#e2e8f0' });
+            return { ...obs, z: newZ, nearMissChecked: true };
+          }
+          return { ...obs, z: newZ, nearMissChecked: true };
+        }
+
+        // Collision zone
         if (!obs.isHit && newZ > -obs.depth / 2 && newZ < obs.depth / 2 + 1) {
           const obsX = obs.lane * 2.5;
           const pX   = pPos.x;
@@ -78,19 +98,19 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
             const hasShield    = activePowerup === 'shield';
 
             let cleared = false;
-            if (obs.type === 'LOW_BARRIER' && pPos.y > 1.2)   cleared = true;
-            if (obs.type === 'SPIKE_ROLLER' && pPos.y > 1.0)  cleared = true;
-            if (obs.type === 'HIGH_BARRIER' && pHit.height < 1.0) cleared = true;
+            if (obs.type === 'LOW_BARRIER' && pPos.y > 1.2)         cleared = true;
+            if (obs.type === 'SPIKE_ROLLER' && pPos.y > 1.0)        cleared = true;
+            if (obs.type === 'HIGH_BARRIER' && pHit.height < 1.0)   cleared = true;
 
             if (!cleared) {
               if (isInvincible) {
-                // pass through
+                // phase through
               } else if (obs.type === 'HIGH_BARRIER' && pPos.y > 0 && pHit.height > 1.0) {
-                // Jumping into high bar
                 if (hasShield) {
                   soundEngine.shieldBlock();
                   haptics.shield();
                   particleEvents.emit({ x: pX, y: pPos.y, z: 0, color: '#38bdf8', count: 14 });
+                  scorePopupEvents.emit({ text: '🛡 BLOCKED!', color: '#38bdf8' });
                   useGameState.getState().activatePowerup(null, 0);
                   breakCombo();
                 } else {
@@ -103,6 +123,7 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
                   soundEngine.shieldBlock();
                   haptics.shield();
                   particleEvents.emit({ x: pX, y: pPos.y, z: 0, color: '#38bdf8', count: 14 });
+                  scorePopupEvents.emit({ text: '🛡 BLOCKED!', color: '#38bdf8' });
                   useGameState.getState().activatePowerup(null, 0);
                   breakCombo();
                 } else if (Math.abs(obsX - pX) > 0.6) {
@@ -129,11 +150,11 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
   return (
     <group>
       {obstacles.map(obs => {
-        if (obs.type === 'TRAIN_STATIC')  return <Train        key={obs.id} lane={obs.lane} z={obs.z} isMoving={false} speedMultiplier={1}   />;
-        if (obs.type === 'TRAIN_MOVING')  return <Train        key={obs.id} lane={obs.lane} z={obs.z} isMoving={true}  speedMultiplier={1.5} />;
-        if (obs.type === 'LOW_BARRIER')   return <LowBarrier   key={obs.id} lane={obs.lane} z={obs.z} />;
-        if (obs.type === 'HIGH_BARRIER')  return <HighBarrier  key={obs.id} lane={obs.lane} z={obs.z} />;
-        if (obs.type === 'SPIKE_ROLLER')  return <SpikeRoller  key={obs.id} lane={obs.lane} z={obs.z} />;
+        if (obs.type === 'TRAIN_STATIC') return <Train       key={obs.id} lane={obs.lane} z={obs.z} isMoving={false} speedMultiplier={1}   />;
+        if (obs.type === 'TRAIN_MOVING') return <Train       key={obs.id} lane={obs.lane} z={obs.z} isMoving={true}  speedMultiplier={1.5} />;
+        if (obs.type === 'LOW_BARRIER')  return <LowBarrier  key={obs.id} lane={obs.lane} z={obs.z} />;
+        if (obs.type === 'HIGH_BARRIER') return <HighBarrier key={obs.id} lane={obs.lane} z={obs.z} />;
+        if (obs.type === 'SPIKE_ROLLER') return <SpikeRoller key={obs.id} lane={obs.lane} z={obs.z} />;
         return null;
       })}
     </group>

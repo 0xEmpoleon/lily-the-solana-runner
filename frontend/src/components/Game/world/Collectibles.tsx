@@ -5,6 +5,7 @@ import { useGameState } from '../store/useGameState';
 import { soundEngine } from '../../../utils/sound';
 import { haptics } from '../../../utils/haptics';
 import { particleEvents } from '../../../utils/particleEvents';
+import { scorePopupEvents } from '../../../utils/scorePopupEvents';
 
 interface CoinItem {
   id: number;
@@ -68,7 +69,7 @@ const StarMesh = ({ c }: { c: CoinItem }) => {
 };
 
 export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPosRef }) => {
-  const { speed, gameState, addCoin, activePowerup, incrementCombo, combo, updateChallenge } = useGameState();
+  const { speed, speedScale, gameState, addCoin, activePowerup, incrementCombo, updateChallenge } = useGameState();
   const [coins, setCoins] = useState<CoinItem[]>([]);
   const nextZ   = useRef(-50);
   const nextId  = useRef(0);
@@ -77,25 +78,41 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
   useFrame((_s, delta) => {
     if (gameState !== 'PLAYING') return;
 
-    // Spawn
+    const effectiveSpeed = speed * speedScale;
+
+    // ── Spawn patterns ─────────────────────────────────────────────────
     if (nextZ.current > -200) {
       const lane = Math.floor(Math.random() * 3) - 1;
       const r = Math.random();
-      if (r < 0.07) {
-        // Star
+
+      if (r < 0.06) {
+        // ★ Star
         setCoins(p => [...p, { id: nextId.current++, lane, y: 1.0, z: nextZ.current, collected: false, isStar: true }]);
         nextZ.current -= 20;
-      } else if (r < 0.43) {
-        // Jump arc
+
+      } else if (r < 0.28) {
+        // Jump arc (normal height)
         for (let i = 0; i < 7; i++) {
           setCoins(p => [...p, {
             id: nextId.current++, lane,
             y: 1 + Math.sin((i / 6) * Math.PI) * 2,
-            z: nextZ.current - i * 2, collected: false, isStar: false,
+            z: nextZ.current - i * 2.2, collected: false, isStar: false,
           }]);
         }
         nextZ.current -= 25;
-      } else if (r < 0.83) {
+
+      } else if (r < 0.44) {
+        // High arc — requires double jump (peaks at y≈4.5)
+        for (let i = 0; i < 7; i++) {
+          setCoins(p => [...p, {
+            id: nextId.current++, lane,
+            y: 1 + Math.sin((i / 6) * Math.PI) * 3.5,
+            z: nextZ.current - i * 3, collected: false, isStar: false,
+          }]);
+        }
+        nextZ.current -= 28;
+
+      } else if (r < 0.63) {
         // Ground line
         for (let i = 0; i < 10; i++) {
           setCoins(p => [...p, {
@@ -104,17 +121,43 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
           }]);
         }
         nextZ.current -= 35;
+
+      } else if (r < 0.78) {
+        // Zigzag across lanes
+        const zigzag = [-1, 0, 1, 0, -1, 0, 1, 0] as const;
+        for (let i = 0; i < 8; i++) {
+          setCoins(p => [...p, {
+            id: nextId.current++, lane: zigzag[i], y: 0.5,
+            z: nextZ.current - i * 3, collected: false, isStar: false,
+          }]);
+        }
+        nextZ.current -= 32;
+
+      } else if (r < 0.90) {
+        // 3-lane spread (3 rows, all 3 lanes)
+        for (let row = 0; row < 3; row++) {
+          for (const l of [-1, 0, 1] as const) {
+            setCoins(p => [...p, {
+              id: nextId.current++, lane: l, y: 0.5,
+              z: nextZ.current - row * 6, collected: false, isStar: false,
+            }]);
+          }
+        }
+        nextZ.current -= 28;
+
       } else {
+        // Gap (no coins)
         nextZ.current -= 15;
       }
     }
 
-    // Move + collect
+    // ── Move + collect ─────────────────────────────────────────────────
     setCoins(prev => {
       const pPos = playerPosRef.current;
       const hasMagnet = activePowerup === 'magnet';
       let pickedCoins = 0;
       let pickedStars = 0;
+      let pickedMultiplier = 1;
       const positions: Array<{ x: number; y: number; z: number; star: boolean }> = [];
 
       const zRange = hasMagnet ? 4.0 : 0.5;
@@ -122,8 +165,8 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
       const yRange = hasMagnet ? 3.0 : 1.5;
 
       const next = prev.map(c => {
-        if (c.collected) return { ...c, z: c.z + speed * delta };
-        const newZ = c.z + speed * delta;
+        if (c.collected) return { ...c, z: c.z + effectiveSpeed * delta };
+        const newZ = c.z + effectiveSpeed * delta;
         if (newZ > -zRange && newZ < zRange) {
           const cX = c.lane * 2.5;
           if (Math.abs(cX - pPos.x) < xRange && Math.abs(c.y - pPos.y) < yRange) {
@@ -134,6 +177,9 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
         }
         return { ...c, z: newZ };
       });
+
+      // Capture multiplier from state for popup text
+      pickedMultiplier = useGameState.getState().multiplier;
 
       // Award + effects
       for (let i = 0; i < pickedCoins; i++) {
@@ -149,12 +195,19 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
 
       const totalPicked = pickedCoins + pickedStars;
       if (totalPicked > 0) {
-        // Sound
-        if (pickedStars > 0) soundEngine.star();
-        else soundEngine.coin();
+        if (pickedStars > 0) {
+          soundEngine.star();
+          scorePopupEvents.emit({ text: `⭐ +${50 * pickedMultiplier}`, color: '#fde047' });
+        } else {
+          soundEngine.coin();
+          if (pickedCoins > 1) {
+            scorePopupEvents.emit({ text: `+${10 * pickedCoins * pickedMultiplier}`, color: '#FFD700' });
+          } else {
+            scorePopupEvents.emit({ text: `+${10 * pickedMultiplier}`, color: '#FFD700' });
+          }
+        }
         haptics.coin();
 
-        // Particles per collected position
         positions.forEach(p => {
           particleEvents.emit({
             x: p.x, y: p.y, z: p.z,
@@ -163,10 +216,11 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
           });
         });
 
-        // Combo sound throttled (every 250 ms)
+        // Combo sound throttled
         const now = performance.now();
-        if (combo >= 4 && now - lastComboSound.current > 250) {
-          const level = combo >= 20 ? 5 : combo >= 10 ? 4 : combo >= 5 ? 3 : 2;
+        const currentCombo = useGameState.getState().combo;
+        if (currentCombo >= 4 && now - lastComboSound.current > 250) {
+          const level = currentCombo >= 20 ? 5 : currentCombo >= 10 ? 4 : currentCombo >= 5 ? 3 : 2;
           soundEngine.combo(level);
           lastComboSound.current = now;
         }

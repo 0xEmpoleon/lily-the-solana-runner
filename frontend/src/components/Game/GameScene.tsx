@@ -8,11 +8,13 @@ import { TrackManager } from './world/TrackManager';
 import { CollectibleManager } from './world/Collectibles';
 import { PowerupManager } from './world/PowerupManager';
 import { ParticleSystem } from './world/ParticleSystem';
+import { ScorePopups } from './ScorePopups';
 import { useGameState } from './store/useGameState';
 import type { CharacterType } from './store/useGameState';
 import { Tutorial, shouldShowTutorial } from './Tutorial';
 import { Leaderboard, submitScore } from './Leaderboard';
 import { soundEngine } from '../../utils/sound';
+import { scorePopupEvents } from '../../utils/scorePopupEvents';
 
 // ── Asset paths ──────────────────────────────────────────────────────────────
 const MASCOT = {
@@ -26,15 +28,24 @@ const MASCOT = {
 };
 
 const POWERUP_ICONS: Record<string, string> = {
-  shield: '🛡️', magnet: '🧲', invincible: '⚡',
+  shield: '🛡️', magnet: '🧲', invincible: '⚡', slowmo: '⏱',
 };
 const POWERUP_COLORS: Record<string, string> = {
   shield:    'from-blue-500 to-cyan-400',
   magnet:    'from-purple-500 to-pink-400',
   invincible:'from-yellow-400 to-orange-500',
+  slowmo:    'from-green-400 to-emerald-500',
 };
 const POWERUP_DURATIONS: Record<string, number> = {
-  shield: 8, magnet: 10, invincible: 6,
+  shield: 8, magnet: 10, invincible: 6, slowmo: 5,
+};
+
+const MILESTONE_LABELS: Record<number, string> = {
+  100: '🔥 GETTING HOT!',
+  500: '⚡ SPEED RUNNER!',
+  1000: '🌟 UNSTOPPABLE!',
+  2500: '🚀 COSMIC!',
+  5000: '💎 LEGENDARY!',
 };
 
 // ── Character card ────────────────────────────────────────────────────────────
@@ -94,22 +105,47 @@ const GameScene: React.FC = () => {
     combo, multiplier,
     character, setCharacter,
     dailyChallenge, updateChallenge,
+    milestoneScore, clearMilestone,
+    runHistory,
   } = useGameState();
 
-  const playerPosRef = useRef(new THREE.Vector3(0, 0, 0));
+  const playerPosRef    = useRef(new THREE.Vector3(0, 0, 0));
   const playerHitboxRef = useRef({ y: 0, height: 1.8 });
 
   // UI state
-  const [showTutorial, setShowTutorial]   = useState(false);
+  const [showTutorial, setShowTutorial]       = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [muted, setMuted]                 = useState(false);
-  const [playerName, setPlayerName]       = useState('');
-  const [walletAddr, setWalletAddr]       = useState('');
-  const [submitted, setSubmitted]         = useState(false);
+  const [muted, setMuted]                     = useState(false);
+  const [playerName, setPlayerName]           = useState('');
+  const [walletAddr, setWalletAddr]           = useState('');
+  const [submitted, setSubmitted]             = useState(false);
+  const [milstoneBanner, setMilestoneBanner]  = useState<string | null>(null);
 
   const isNewHighScore = gameState === 'GAMEOVER' && Math.floor(score) > 0 && Math.floor(score) >= highScore;
 
-  // Keyboard shortcuts for menus
+  // Milestone banner + popup
+  useEffect(() => {
+    if (!milestoneScore) return;
+    const label = MILESTONE_LABELS[milestoneScore] ?? `🎯 ${milestoneScore}!`;
+    setMilestoneBanner(label);
+    scorePopupEvents.emit({ text: label, color: '#38bdf8', big: true });
+    const t = setTimeout(() => {
+      setMilestoneBanner(null);
+      clearMilestone();
+    }, 2200);
+    return () => clearTimeout(t);
+  }, [milestoneScore, clearMilestone]);
+
+  // Daily challenge completion popup
+  const prevCompleted = useRef(dailyChallenge.completed);
+  useEffect(() => {
+    if (dailyChallenge.completed && !prevCompleted.current && gameState === 'PLAYING') {
+      scorePopupEvents.emit({ text: '✅ DAILY DONE!', color: '#4ade80', big: true });
+    }
+    prevCompleted.current = dailyChallenge.completed;
+  }, [dailyChallenge.completed, gameState]);
+
+  // Keyboard shortcut to start
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === ' ' || e.key === 'Enter') {
@@ -120,12 +156,10 @@ const GameScene: React.FC = () => {
     return () => window.removeEventListener('keydown', handler);
   }, [gameState]);
 
-  // Reset submission state when game restarts
   useEffect(() => {
     if (gameState === 'PLAYING') setSubmitted(false);
   }, [gameState]);
 
-  // Check tutorial on first play
   const handleStart = () => {
     if (gameState === 'MENU' && shouldShowTutorial()) {
       setShowTutorial(true);
@@ -148,21 +182,22 @@ const GameScene: React.FC = () => {
       coins,
       wallet: walletAddr,
     });
-    // Also update daily challenge for score type
     updateChallenge('score', Math.floor(score));
     updateChallenge('combo', useGameState.getState().maxCombo);
   };
 
   const toggleMute = () => setMuted(soundEngine.toggle());
 
-  // Sky color tint per theme (based on score)
+  // Previous run scores (exclude current run at index 0 if just finished)
+  const prevRuns = gameState === 'GAMEOVER' ? runHistory.slice(1, 4) : runHistory.slice(0, 3);
+
   return (
     <div className="w-full h-screen bg-black relative touch-none select-none">
       <Canvas shadows>
         <PerspectiveCamera makeDefault position={[0, 4, 8]} fov={50} rotation={[-0.2, 0, 0]} />
-        <ambientLight intensity={0.6} />
+        <ambientLight intensity={activePowerup === 'slowmo' ? 1.2 : 0.6} />
         <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]} />
-        <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />
+        <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade speed={activePowerup === 'slowmo' ? 0.2 : 1} />
 
         {gameState === 'PLAYING' && (
           <Suspense fallback={null}>
@@ -198,7 +233,7 @@ const GameScene: React.FC = () => {
                 )}
               </div>
 
-              {/* Mute button (pointer-events-auto) */}
+              {/* Mute button */}
               <button
                 className="pointer-events-auto text-slate-400 hover:text-white text-xl mt-1 transition-colors"
                 onClick={toggleMute}
@@ -211,6 +246,10 @@ const GameScene: React.FC = () => {
                 <p className="text-yellow-400 font-mono text-3xl font-bold drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]">
                   {coins}
                 </p>
+                {/* Multiplier badge — always visible when > 1 */}
+                {multiplier > 1 && (
+                  <p className="text-orange-400 font-black text-sm animate-pulse">×{multiplier}</p>
+                )}
               </div>
             </div>
 
@@ -220,9 +259,7 @@ const GameScene: React.FC = () => {
                 <span className="text-orange-400 font-black text-2xl drop-shadow-[0_0_12px_rgba(251,146,60,0.9)] animate-bounce">
                   {combo}× COMBO!
                 </span>
-                {multiplier > 1 && (
-                  <span className="text-yellow-300 font-bold text-xs">×{multiplier} MULTIPLIER</span>
-                )}
+                <span className="text-yellow-300 font-bold text-xs">×{multiplier} MULTIPLIER</span>
               </div>
             )}
 
@@ -242,40 +279,50 @@ const GameScene: React.FC = () => {
               </div>
             )}
 
+            {/* Milestone banner */}
+            {milstoneBanner && (
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                <div className="px-6 py-3 rounded-2xl bg-cyan-500/30 border-2 border-cyan-400 backdrop-blur-sm animate-bounce">
+                  <p className="text-cyan-300 font-black text-2xl text-center drop-shadow-[0_0_15px_rgba(34,211,238,1)]">
+                    {milstoneBanner}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Daily challenge mini-badge */}
-            {!dailyChallenge.completed && (
+            {!dailyChallenge.completed ? (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none">
                 <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/50 border border-yellow-500/40">
                   <span className="text-xs text-yellow-300">📋 {dailyChallenge.progress}/{dailyChallenge.target}</span>
                 </div>
               </div>
-            )}
-            {dailyChallenge.completed && (
+            ) : (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 animate-bounce pointer-events-none">
                 <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-green-900/70 border border-green-400/60">
                   <span className="text-xs text-green-300 font-bold">✅ Daily complete!</span>
                 </div>
               </div>
             )}
+
+            {/* Score popups (floating text) */}
+            <ScorePopups />
           </>
         )}
 
         {/* ── MENU ── */}
         {gameState === 'MENU' && (
           <div className="absolute inset-0 flex flex-col items-center justify-start pt-10 pb-6 overflow-y-auto bg-slate-900/88 pointer-events-auto backdrop-blur-sm gap-4">
-            {/* Mute */}
             <button className="absolute top-4 right-4 text-slate-400 hover:text-white text-xl" onClick={toggleMute}>
               {muted ? '🔇' : '🔊'}
             </button>
 
-            {/* Mascot + title */}
             <img src={MASCOT.playing} alt="JOY" className="w-28 h-28 object-contain drop-shadow-[0_0_20px_rgba(34,211,238,0.5)]" />
             <div className="text-center -mt-2">
               <h1 className="text-5xl font-black text-white leading-tight">MARS</h1>
               <h1 className="text-4xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent italic">SURFERS</h1>
             </div>
 
-            {/* High score */}
             {highScore > 0 && (
               <div className="px-5 py-1.5 rounded-full bg-yellow-400/20 border border-yellow-400/50">
                 <span className="text-yellow-400 font-bold text-sm">🏆 BEST: {highScore}</span>
@@ -297,10 +344,8 @@ const GameScene: React.FC = () => {
               </div>
             </div>
 
-            {/* Daily challenge */}
             <ChallengeBadge />
 
-            {/* Run button */}
             <button
               onClick={handleStart}
               className="px-12 py-4 bg-cyan-500 hover:bg-cyan-400 hover:scale-105 active:scale-95 text-white font-black rounded-full transition-all text-2xl shadow-[0_0_25px_rgba(6,182,212,0.7)] border border-cyan-300"
@@ -308,7 +353,6 @@ const GameScene: React.FC = () => {
               RUN
             </button>
 
-            {/* Leaderboard button */}
             <button
               onClick={() => setShowLeaderboard(true)}
               className="text-slate-300 hover:text-white text-sm underline transition-colors"
@@ -316,26 +360,25 @@ const GameScene: React.FC = () => {
               🏆 View Leaderboard
             </button>
 
-            {/* Controls hint */}
             <div className="text-center text-slate-500 text-xs space-y-0.5">
-              <p>← → Lane &nbsp;|&nbsp; ↑ Jump &nbsp;|&nbsp; ↓ Roll</p>
-              <p>❤️ Shield · ⚡ Invincible · 🧲 Magnet · ⭐ Star=5 coins</p>
+              <p>← → Lane &nbsp;|&nbsp; ↑ Jump &nbsp;|&nbsp; ↑↑ Double Jump &nbsp;|&nbsp; ↓ Roll</p>
+              <p>🛡 Shield · ⚡ Invincible · 🧲 Magnet · ⏱ Slow-Mo · ⭐ Star=5 coins</p>
             </div>
           </div>
         )}
 
         {/* ── GAME OVER ── */}
         {gameState === 'GAMEOVER' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-950/92 pointer-events-auto backdrop-blur-md px-4 gap-4">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-950/92 pointer-events-auto backdrop-blur-md px-4 gap-3 overflow-y-auto py-6">
 
             <img
               src={isNewHighScore ? MASCOT.reward : MASCOT.betterLuck}
               alt="JOY"
-              className="w-28 h-28 object-contain drop-shadow-[0_0_15px_rgba(255,100,100,0.6)]"
+              className="w-24 h-24 object-contain drop-shadow-[0_0_15px_rgba(255,100,100,0.6)]"
             />
 
             <div className="text-center">
-              <h1 className="text-5xl font-black text-white tracking-widest">
+              <h1 className="text-4xl font-black text-white tracking-widest">
                 {isNewHighScore ? '🏆 NEW BEST!' : 'BUSTED'}
               </h1>
               {isNewHighScore && <p className="text-yellow-300 text-sm font-bold animate-pulse">HIGH SCORE!</p>}
@@ -347,14 +390,28 @@ const GameScene: React.FC = () => {
               <span className="text-red-400 font-mono text-5xl font-black drop-shadow-[0_0_10px_rgba(248,113,113,0.5)] mt-1">
                 {Math.floor(score)}
               </span>
-              <div className="w-full h-px bg-slate-700 my-3" />
+              <div className="w-full h-px bg-slate-700 my-2" />
               <div className="flex gap-6">
                 <span className="text-yellow-400 font-mono text-xl font-bold">💰 {coins}</span>
                 {highScore > 0 && <span className="text-cyan-400 font-mono text-xl font-bold">🏆 {highScore}</span>}
               </div>
             </div>
 
-            {/* Wallet + name + submit */}
+            {/* Run history */}
+            {prevRuns.length > 0 && (
+              <div className="w-full max-w-[300px] bg-slate-900/60 px-4 py-2 rounded-xl border border-slate-700">
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1.5">Previous Runs</p>
+                <div className="flex gap-2 flex-wrap">
+                  {prevRuns.map((s, i) => (
+                    <span key={i} className="text-slate-300 font-mono text-sm bg-slate-800 px-2 py-0.5 rounded-lg">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Submit score */}
             {!submitted ? (
               <div className="w-full max-w-[300px] bg-slate-800/80 p-4 rounded-xl border border-cyan-500/50 flex flex-col gap-2">
                 <label className="text-cyan-400 text-xs font-bold tracking-wider">CLAIM REWARD</label>
@@ -403,10 +460,7 @@ const GameScene: React.FC = () => {
         )}
       </div>
 
-      {/* ── Tutorial overlay ── */}
-      {showTutorial && <Tutorial onDismiss={handleTutorialDismiss} />}
-
-      {/* ── Leaderboard overlay ── */}
+      {showTutorial    && <Tutorial    onDismiss={handleTutorialDismiss} />}
       {showLeaderboard && <Leaderboard onClose={() => setShowLeaderboard(false)} />}
     </div>
   );

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type PowerupType = 'shield' | 'magnet' | 'invincible' | null;
+export type PowerupType = 'shield' | 'magnet' | 'invincible' | 'slowmo' | null;
 export type CharacterType = 'penguin' | 'bear';
 export type ChallengeType = 'coins' | 'score' | 'combo';
 
@@ -27,6 +27,10 @@ const saveHighScore = (s: number) => ls.set('mars_highscore', String(s));
 const loadCharacter = (): CharacterType =>
   (ls.get('mars_character') as CharacterType) || 'penguin';
 
+const loadHistory = (): number[] => {
+  try { return JSON.parse(ls.get('mars_history') || '[]'); } catch { return []; }
+};
+
 // ── Daily challenge generation (deterministic from date) ───────────────────
 const buildDailyChallenge = (): DailyChallenge => {
   const date = new Date().toDateString();
@@ -45,7 +49,6 @@ const buildDailyChallenge = (): DailyChallenge => {
     combo: `Get a ${target}x coin combo`,
   };
 
-  // Load saved progress for today
   const saved = ls.get('mars_daily');
   if (saved) {
     try {
@@ -57,6 +60,8 @@ const buildDailyChallenge = (): DailyChallenge => {
   return { type, target, progress: 0, completed: false, date, description: descriptions[type] };
 };
 
+const MILESTONES = [100, 500, 1000, 2500, 5000];
+
 // ── Store ──────────────────────────────────────────────────────────────────
 interface GameState {
   score: number;
@@ -64,6 +69,7 @@ interface GameState {
   multiplier: number;
   gameState: 'MENU' | 'PLAYING' | 'GAMEOVER';
   speed: number;
+  speedScale: number;      // 1.0 normally, 0.4 during slowmo
   highScore: number;
 
   character: CharacterType;
@@ -74,6 +80,8 @@ interface GameState {
   maxCombo: number;
 
   dailyChallenge: DailyChallenge;
+  milestoneScore: number | null;   // set when score crosses a milestone
+  runHistory: number[];            // last 5 run scores
 
   // Actions
   startGame: () => void;
@@ -87,6 +95,7 @@ interface GameState {
   incrementCombo: () => void;
   breakCombo: () => void;
   updateChallenge: (type: ChallengeType, amount: number) => void;
+  clearMilestone: () => void;
 }
 
 const INITIAL_SPEED = 20;
@@ -97,6 +106,7 @@ export const useGameState = create<GameState>((set, get) => ({
   multiplier: 1,
   gameState: 'MENU',
   speed: INITIAL_SPEED,
+  speedScale: 1.0,
   highScore: loadHighScore(),
 
   character: loadCharacter(),
@@ -107,24 +117,40 @@ export const useGameState = create<GameState>((set, get) => ({
   maxCombo: 0,
 
   dailyChallenge: buildDailyChallenge(),
+  milestoneScore: null,
+  runHistory: loadHistory(),
 
   // ── Game flow ──────────────────────────────────────────────────────────
   startGame: () => set({
     gameState: 'PLAYING',
     score: 0, coins: 0,
     speed: INITIAL_SPEED,
+    speedScale: 1.0,
     activePowerup: null, powerupTimeLeft: 0,
     combo: 0, maxCombo: 0, multiplier: 1,
+    milestoneScore: null,
   }),
 
   endGame: () => {
-    const { score, highScore } = get();
-    const newHigh = Math.max(Math.floor(score), highScore);
+    const { score, highScore, runHistory } = get();
+    const finalScore = Math.floor(score);
+    const newHigh = Math.max(finalScore, highScore);
     if (newHigh > highScore) saveHighScore(newHigh);
-    set({ gameState: 'GAMEOVER', highScore: newHigh, activePowerup: null });
+    const newHistory = [finalScore, ...runHistory].slice(0, 5);
+    ls.set('mars_history', JSON.stringify(newHistory));
+    set({ gameState: 'GAMEOVER', highScore: newHigh, activePowerup: null, speedScale: 1.0, runHistory: newHistory });
   },
 
-  addScore: (points) => set(s => ({ score: s.score + points * s.multiplier })),
+  addScore: (points) => set(s => {
+    const newScore = s.score + points * s.multiplier;
+    let milestoneHit: number | null = null;
+    if (!s.milestoneScore) {
+      for (const m of MILESTONES) {
+        if (s.score < m && newScore >= m) { milestoneHit = m; break; }
+      }
+    }
+    return { score: newScore, ...(milestoneHit ? { milestoneScore: milestoneHit } : {}) };
+  }),
 
   addCoin: () => set(s => ({
     coins: s.coins + 1,
@@ -140,12 +166,24 @@ export const useGameState = create<GameState>((set, get) => ({
   },
 
   // ── Power-ups ─────────────────────────────────────────────────────────
-  activatePowerup: (type, duration) => set({ activePowerup: type, powerupTimeLeft: duration }),
+  activatePowerup: (type, duration) => set(s => ({
+    activePowerup: type,
+    powerupTimeLeft: duration,
+    // slowmo adjusts world speed; restores if overriding a slowmo
+    speedScale: type === 'slowmo' ? 0.4 : (s.activePowerup === 'slowmo' ? 1.0 : s.speedScale),
+  })),
 
   tickPowerup: (delta) => set(s => {
     if (!s.activePowerup) return {};
     const t = s.powerupTimeLeft - delta;
-    return t <= 0 ? { activePowerup: null, powerupTimeLeft: 0 } : { powerupTimeLeft: t };
+    if (t <= 0) {
+      return {
+        activePowerup: null,
+        powerupTimeLeft: 0,
+        speedScale: s.activePowerup === 'slowmo' ? 1.0 : s.speedScale,
+      };
+    }
+    return { powerupTimeLeft: t };
   }),
 
   // ── Combo ─────────────────────────────────────────────────────────────
@@ -168,4 +206,6 @@ export const useGameState = create<GameState>((set, get) => ({
     ls.set('mars_daily', JSON.stringify(updated));
     return { dailyChallenge: updated };
   }),
+
+  clearMilestone: () => set({ milestoneScore: null }),
 }));
