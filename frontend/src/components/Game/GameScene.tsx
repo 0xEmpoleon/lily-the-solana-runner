@@ -1,5 +1,5 @@
 import React, { Suspense, useRef, useEffect, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PerspectiveCamera, Environment, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import Player from './Player';
@@ -94,6 +94,21 @@ const ChallengeBadge = () => {
       </p>
     </div>
   );
+};
+
+// ── Camera controller — soft-follows player's lane so full body stays in view ─
+const _lookAt = new THREE.Vector3();
+const CameraController: React.FC<{ playerPosRef: React.MutableRefObject<THREE.Vector3> }> = ({ playerPosRef }) => {
+  const { camera } = useThree();
+  useFrame((_, delta) => {
+    // Gently pan camera x toward 35 % of player's lane offset
+    const targetX = playerPosRef.current.x * 0.35;
+    camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetX, delta * 5);
+    // Always look toward the player's approximate mid-height
+    _lookAt.set(camera.position.x * 0.4, 1.0, 0);
+    camera.lookAt(_lookAt);
+  });
+  return null;
 };
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -194,13 +209,15 @@ const GameScene: React.FC = () => {
   return (
     <div className="w-full h-screen bg-black relative touch-none select-none">
       <Canvas shadows>
-        <PerspectiveCamera makeDefault position={[0, 4, 8]} fov={50} rotation={[-0.2, 0, 0]} />
+        {/* Pulled back + wider FOV so full body is always visible across all lanes */}
+        <PerspectiveCamera makeDefault position={[0, 5.5, 11]} fov={62} />
         <ambientLight intensity={activePowerup === 'slowmo' ? 1.2 : 0.6} />
         <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]} />
         <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade speed={activePowerup === 'slowmo' ? 0.2 : 1} />
 
         {gameState === 'PLAYING' && (
           <Suspense fallback={null}>
+            <CameraController playerPosRef={playerPosRef} />
             <TrackManager />
             <Player positionRef={playerPosRef} hitboxRef={playerHitboxRef} onHitObstacle={() => {}} onCoinCollect={() => {}} />
             <ObstacleManager playerPosRef={playerPosRef} playerHitboxRef={playerHitboxRef} onCrash={endGame} onStumble={() => {}} />

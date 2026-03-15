@@ -157,7 +157,7 @@ export const useGameState = create<GameState>((set, get) => ({
     score: s.score + 10 * s.multiplier,
   })),
 
-  increaseSpeed: (delta) => set(s => ({ speed: Math.min(s.speed + delta, 65) })),
+  increaseSpeed: (delta) => set(s => ({ speed: Math.min(s.speed + delta, 120) })),
 
   // ── Character ──────────────────────────────────────────────────────────
   setCharacter: (c) => {

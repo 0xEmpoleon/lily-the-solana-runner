@@ -37,9 +37,26 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
   const nextZ   = useRef(-100);
   const nextId  = useRef(0);
 
+  // Gap shrinks continuously with score — no hard floor until very high scores
   const getGap = () => {
-    const base = Math.max(14, 40 - Math.floor(score / 200));
-    return base + Math.random() * base * 0.5;
+    const t = Math.min(score / 3000, 1);
+    const base = Math.max(10, 40 - t * 30);           // 40 → 10 over 3000 score
+    return base + Math.random() * base * 0.35;
+  };
+
+  // Obstacle type probabilities shift toward harder types as score increases
+  const getObstacleType = (): { type: ObstacleType; width: number; height: number; depth: number } => {
+    const h = Math.min(score / 2000, 1); // 0 → 1 over 2000 score
+    const r = Math.random();
+    const p1 = 0.35 - h * 0.13;               // LOW_BARRIER:   35% → 22%
+    const p2 = p1 + 0.18;                      // HIGH_BARRIER:  18% constant
+    const p3 = p2 + 0.12 + h * 0.06;          // SPIKE_ROLLER:  12% → 18%
+    const p4 = p3 + 0.15 + h * 0.12;          // TRAIN_MOVING:  15% → 27%
+    if (r < p1)  return { type: 'LOW_BARRIER',  width: 2.2, height: 1,   depth: 0.5  };
+    if (r < p2)  return { type: 'HIGH_BARRIER', width: 2.2, height: 3,   depth: 0.2  };
+    if (r < p3)  return { type: 'SPIKE_ROLLER', width: 2.2, height: 1.2, depth: 2.2  };
+    if (r < p4)  return { type: 'TRAIN_MOVING', width: 2.2, height: 4,   depth: 15   };
+                 return { type: 'TRAIN_STATIC', width: 2.2, height: 4,   depth: 15   };
   };
 
   useFrame((_s, delta) => {
@@ -49,16 +66,7 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
     // ── Spawn ──────────────────────────────────────────────────────────
     if (nextZ.current > -300) {
       const lane = Math.floor(Math.random() * 3) - 1;
-      const r    = Math.random();
-      let type: ObstacleType;
-      let width = 2.2, height = 4, depth = 15;
-
-      if      (r < 0.35) { type = 'LOW_BARRIER';   height = 1;   depth = 0.5; }
-      else if (r < 0.55) { type = 'HIGH_BARRIER';  height = 3;   depth = 0.2; }
-      else if (r < 0.68) { type = 'SPIKE_ROLLER';  height = 1.2; depth = 2.2; }
-      else if (r < 0.82) { type = 'TRAIN_MOVING'; }
-      else                { type = 'TRAIN_STATIC'; }
-
+      const { type, width, height, depth } = getObstacleType();
       setObstacles(p => [...p, {
         id: nextId.current++, type, lane, z: nextZ.current,
         width, height, depth, isHit: false, nearMissChecked: false,

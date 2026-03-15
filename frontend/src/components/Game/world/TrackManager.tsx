@@ -133,7 +133,7 @@ const TrackChunk: React.FC<ChunkProps> = ({ positionZ, theme }) => {
 
 // ── Manager ───────────────────────────────────────────────────────────────
 export const TrackManager: React.FC = () => {
-  const { speed, speedScale, gameState, addScore, score } = useGameState();
+  const { speed, speedScale, gameState, addScore, score, increaseSpeed } = useGameState();
   const [chunks, setChunks] = useState<{ id: number; z: number }[]>(
     Array.from({ length: VISIBLE_CHUNKS }).map((_, i) => ({ id: i, z: -i * CHUNK_LENGTH }))
   );
@@ -146,6 +146,10 @@ export const TrackManager: React.FC = () => {
   useFrame((_state, delta) => {
     if (gameState !== 'PLAYING') return;
     const effectiveSpeed = speed * speedScale;
+
+    // Continuously ramp speed: starts slow, accelerates faster as score grows
+    const accel = 0.25 + Math.min(score / 1500, 1) * 1.0; // 0.25 → 1.25 units/s²
+    increaseSpeed(delta * accel);
 
     setChunks(current => {
       let needsNew = false;
