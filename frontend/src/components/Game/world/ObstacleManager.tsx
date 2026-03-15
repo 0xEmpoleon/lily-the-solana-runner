@@ -63,6 +63,9 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
     if (gameState !== 'PLAYING') return;
     const effectiveSpeed = speed * speedScale;
 
+    // ── Advance spawn cursor with world movement ────────────────────────
+    nextZ.current += effectiveSpeed * delta;
+
     // ── Spawn ──────────────────────────────────────────────────────────
     if (nextZ.current > -300) {
       const lane = Math.floor(Math.random() * 3) - 1;

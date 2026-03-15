@@ -74,6 +74,9 @@ export const PowerupManager: React.FC<PowerupManagerProps> = ({ playerPosRef }) 
 
     tickPowerup(delta);
 
+    // ── Advance spawn cursor with world movement ────────────────────────
+    nextZ.current += effectiveSpeed * delta;
+
     if (nextZ.current > -400) {
       const lane = Math.floor(Math.random() * 3) - 1;
       const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];

@@ -80,6 +80,9 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
 
     const effectiveSpeed = speed * speedScale;
 
+    // ── Advance spawn cursor with world movement ────────────────────────
+    nextZ.current += effectiveSpeed * delta;
+
     // ── Spawn patterns ─────────────────────────────────────────────────
     if (nextZ.current > -200) {
       const lane = Math.floor(Math.random() * 3) - 1;
