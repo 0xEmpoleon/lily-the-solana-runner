@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useGameState, PowerupType } from '../store/useGameState';
+import { useGameState } from '../store/useGameState';
+import type { PowerupType } from '../store/useGameState';
 
 interface PowerupItem {
   id: number;
@@ -27,7 +28,6 @@ const POWERUP_TYPES: NonNullable<PowerupType>[] = ['shield', 'magnet', 'invincib
 // One floating power-up orb rendered in 3D
 const PowerupOrb = ({
   item,
-  onCollect,
 }: {
   item: PowerupItem;
   onCollect: () => void;
@@ -43,8 +43,6 @@ const PowerupOrb = ({
     groupRef.current.rotation.y = t * 1.5;
     if (ringRef.current) ringRef.current.rotation.x = t * 2;
   });
-
-  const icon = item.type === 'shield' ? '🛡' : item.type === 'magnet' ? '🧲' : '⚡';
 
   return (
     <group ref={groupRef} position={[item.lane * 2.5, 1.8, item.z]}>
@@ -132,7 +130,7 @@ export const PowerupManager: React.FC<PowerupManagerProps> = ({ playerPosRef }) 
       });
 
       if (pickedType) {
-        const cfg = POWERUP_CONFIG[pickedType];
+        const cfg = POWERUP_CONFIG[pickedType as NonNullable<PowerupType>];
         activatePowerup(pickedType, cfg.duration);
       }
 

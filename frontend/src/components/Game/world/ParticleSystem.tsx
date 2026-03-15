@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { particleEvents, BurstEvent } from '../../../utils/particleEvents';
+import { particleEvents } from '../../../utils/particleEvents';
+import type { BurstEvent } from '../../../utils/particleEvents';
 
 interface Particle {
   pos: THREE.Vector3;
@@ -24,7 +25,6 @@ export const ParticleSystem: React.FC = () => {
   }, []);
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const color = useMemo(() => new THREE.Color(), []);
 
   // Separate meshes per color bucket – avoids instanced color attribute entirely
   const goldRef  = useRef<THREE.InstancedMesh>(null);

@@ -8,7 +8,8 @@ import { TrackManager } from './world/TrackManager';
 import { CollectibleManager } from './world/Collectibles';
 import { PowerupManager } from './world/PowerupManager';
 import { ParticleSystem } from './world/ParticleSystem';
-import { useGameState, CharacterType } from './store/useGameState';
+import { useGameState } from './store/useGameState';
+import type { CharacterType } from './store/useGameState';
 import { Tutorial, shouldShowTutorial } from './Tutorial';
 import { Leaderboard, submitScore } from './Leaderboard';
 import { soundEngine } from '../../utils/sound';
@@ -38,7 +39,7 @@ const POWERUP_DURATIONS: Record<string, number> = {
 
 // ── Character card ────────────────────────────────────────────────────────────
 const CharacterCard = ({
-  id, label, emoji, desc, selected, onSelect,
+  label, emoji, desc, selected, onSelect,
 }: { id: CharacterType; label: string; emoji: string; desc: string; selected: boolean; onSelect: () => void }) => (
   <button
     onClick={onSelect}
