@@ -7,8 +7,6 @@ const LANE_WIDTH = 2.5;
 interface TrainProps {
   lane: number;
   z: number;
-  isMoving: boolean;
-  speedMultiplier: number;
 }
 
 export const Train: React.FC<TrainProps> = ({ lane, z }) => (
@@ -47,11 +45,6 @@ export const LowBarrier: React.FC<{ lane: number; z: number }> = ({ lane, z }) =
       <boxGeometry args={[2.4, 1, 0.5]} />
       <meshStandardMaterial color="#eab308" roughness={0.4} metalness={0.1} />
     </mesh>
-    {/* Black hazard stripe overlay */}
-    <mesh position={[0, 0.5, 0.26]}>
-      <planeGeometry args={[2.4, 1]} />
-      <meshBasicMaterial color="#000" wireframe />
-    </mesh>
     {/* Base plate */}
     <mesh position={[0, 0.05, 0]} receiveShadow>
       <boxGeometry args={[2.6, 0.1, 0.8]} />
@@ -62,25 +55,17 @@ export const LowBarrier: React.FC<{ lane: number; z: number }> = ({ lane, z }) =
 
 export const HighBarrier: React.FC<{ lane: number; z: number }> = ({ lane, z }) => (
   <group position={[lane * LANE_WIDTH, 0, z]}>
-    {/* Left post */}
-    <mesh position={[-1.1, 1.5, 0]} castShadow>
-      <cylinderGeometry args={[0.1, 0.1, 3, 8]} />
-      <meshStandardMaterial color="#666" metalness={0.8} roughness={0.2} />
-    </mesh>
-    {/* Right post */}
-    <mesh position={[1.1, 1.5, 0]} castShadow>
-      <cylinderGeometry args={[0.1, 0.1, 3, 8]} />
-      <meshStandardMaterial color="#666" metalness={0.8} roughness={0.2} />
-    </mesh>
+    {/* Posts */}
+    {[-1.1, 1.1].map((x) => (
+      <mesh key={x} position={[x, 1.5, 0]} castShadow>
+        <cylinderGeometry args={[0.1, 0.1, 3, 8]} />
+        <meshStandardMaterial color="#666" metalness={0.8} roughness={0.2} />
+      </mesh>
+    ))}
     {/* Top bar */}
     <mesh position={[0, 2.5, 0]} castShadow>
       <boxGeometry args={[2.4, 0.8, 0.2]} />
       <meshStandardMaterial color="#eab308" roughness={0.4} metalness={0.1} />
-    </mesh>
-    {/* Hazard stripe on bar */}
-    <mesh position={[0, 2.5, 0.11]}>
-      <planeGeometry args={[2.4, 0.8]} />
-      <meshBasicMaterial color="#000" wireframe />
     </mesh>
     {/* Warning lights */}
     {[-0.8, 0.8].map((x) => (
@@ -92,10 +77,11 @@ export const HighBarrier: React.FC<{ lane: number; z: number }> = ({ lane, z }) 
   </group>
 );
 
+const SPIKE_COUNT = 12;
+
 // SpikeRoller – a rolling cylinder covered in spikes, must jump over
 export const SpikeRoller: React.FC<{ lane: number; z: number }> = ({ lane, z }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const SPIKES = 12;
 
   useFrame((state) => {
     if (groupRef.current) {
@@ -112,8 +98,8 @@ export const SpikeRoller: React.FC<{ lane: number; z: number }> = ({ lane, z }) 
           <meshStandardMaterial color="#333" metalness={0.9} roughness={0.1} />
         </mesh>
         {/* Spikes arranged around the cylinder */}
-        {Array.from({ length: SPIKES }).map((_, i) => {
-          const angle = (i / SPIKES) * Math.PI * 2;
+        {Array.from({ length: SPIKE_COUNT }).map((_, i) => {
+          const angle = (i / SPIKE_COUNT) * Math.PI * 2;
           const sx = Math.cos(angle) * 0.5;
           const sy = Math.sin(angle) * 0.5;
           return (

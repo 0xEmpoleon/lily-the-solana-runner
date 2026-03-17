@@ -161,8 +161,8 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
   return (
     <group>
       {obstacles.map(obs => {
-        if (obs.type === 'TRAIN_STATIC') return <Train       key={obs.id} lane={obs.lane} z={obs.z} isMoving={false} speedMultiplier={1}   />;
-        if (obs.type === 'TRAIN_MOVING') return <Train       key={obs.id} lane={obs.lane} z={obs.z} isMoving={true}  speedMultiplier={1.5} />;
+        if (obs.type === 'TRAIN_STATIC') return <Train key={obs.id} lane={obs.lane} z={obs.z} />;
+        if (obs.type === 'TRAIN_MOVING') return <Train key={obs.id} lane={obs.lane} z={obs.z} />;
         if (obs.type === 'LOW_BARRIER')  return <LowBarrier  key={obs.id} lane={obs.lane} z={obs.z} />;
         if (obs.type === 'HIGH_BARRIER') return <HighBarrier key={obs.id} lane={obs.lane} z={obs.z} />;
         if (obs.type === 'SPIKE_ROLLER') return <SpikeRoller key={obs.id} lane={obs.lane} z={obs.z} />;

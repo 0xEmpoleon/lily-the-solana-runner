@@ -8,8 +8,6 @@ import { soundEngine } from '../../utils/sound';
 import { haptics } from '../../utils/haptics';
 
 interface PlayerProps {
-  onHitObstacle: (type: 'HIGH' | 'LOW' | 'FULL') => void;
-  onCoinCollect: (id: string) => void;
   positionRef: React.MutableRefObject<THREE.Vector3>;
   hitboxRef: React.MutableRefObject<{ y: number; height: number }>;
 }

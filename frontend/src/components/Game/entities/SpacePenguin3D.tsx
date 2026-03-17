@@ -56,7 +56,7 @@ const SpacePenguin3D: React.FC<SpacePenguinProps> = ({ playerState }) => {
   });
 
   return (
-    <group ref={groupRef} castShadow>
+    <group ref={groupRef} rotation-y={Math.PI} castShadow>
       <group ref={bodyRef}>
 
         {/* ── Body – chubby suit ── */}

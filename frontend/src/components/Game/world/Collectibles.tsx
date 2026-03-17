@@ -88,40 +88,42 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
       const lane = Math.floor(Math.random() * 3) - 1;
       const r = Math.random();
 
+      const newItems: CoinItem[] = [];
+
       if (r < 0.06) {
         // ★ Star
-        setCoins(p => [...p, { id: nextId.current++, lane, y: 1.0, z: nextZ.current, collected: false, isStar: true }]);
+        newItems.push({ id: nextId.current++, lane, y: 1.0, z: nextZ.current, collected: false, isStar: true });
         nextZ.current -= 20;
 
       } else if (r < 0.28) {
         // Jump arc (normal height)
         for (let i = 0; i < 7; i++) {
-          setCoins(p => [...p, {
+          newItems.push({
             id: nextId.current++, lane,
             y: 1 + Math.sin((i / 6) * Math.PI) * 2,
             z: nextZ.current - i * 2.2, collected: false, isStar: false,
-          }]);
+          });
         }
         nextZ.current -= 25;
 
       } else if (r < 0.44) {
         // High arc — requires double jump (peaks at y≈4.5)
         for (let i = 0; i < 7; i++) {
-          setCoins(p => [...p, {
+          newItems.push({
             id: nextId.current++, lane,
             y: 1 + Math.sin((i / 6) * Math.PI) * 3.5,
             z: nextZ.current - i * 3, collected: false, isStar: false,
-          }]);
+          });
         }
         nextZ.current -= 28;
 
       } else if (r < 0.63) {
         // Ground line
         for (let i = 0; i < 10; i++) {
-          setCoins(p => [...p, {
+          newItems.push({
             id: nextId.current++, lane, y: 0.5,
             z: nextZ.current - i * 2, collected: false, isStar: false,
-          }]);
+          });
         }
         nextZ.current -= 35;
 
@@ -129,10 +131,10 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
         // Zigzag across lanes
         const zigzag = [-1, 0, 1, 0, -1, 0, 1, 0] as const;
         for (let i = 0; i < 8; i++) {
-          setCoins(p => [...p, {
+          newItems.push({
             id: nextId.current++, lane: zigzag[i], y: 0.5,
             z: nextZ.current - i * 3, collected: false, isStar: false,
-          }]);
+          });
         }
         nextZ.current -= 32;
 
@@ -140,10 +142,10 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
         // 3-lane spread (3 rows, all 3 lanes)
         for (let row = 0; row < 3; row++) {
           for (const l of [-1, 0, 1] as const) {
-            setCoins(p => [...p, {
+            newItems.push({
               id: nextId.current++, lane: l, y: 0.5,
               z: nextZ.current - row * 6, collected: false, isStar: false,
-            }]);
+            });
           }
         }
         nextZ.current -= 28;
@@ -152,6 +154,8 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
         // Gap (no coins)
         nextZ.current -= 15;
       }
+
+      if (newItems.length > 0) setCoins(p => [...p, ...newItems]);
     }
 
     // ── Move + collect ─────────────────────────────────────────────────

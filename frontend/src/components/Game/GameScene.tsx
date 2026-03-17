@@ -10,11 +10,12 @@ import { PowerupManager } from './world/PowerupManager';
 import { ParticleSystem } from './world/ParticleSystem';
 import { ScorePopups } from './ScorePopups';
 import { useGameState } from './store/useGameState';
-import type { CharacterType } from './store/useGameState';
+import type { PowerupType } from './store/useGameState';
 import { Tutorial, shouldShowTutorial } from './Tutorial';
 import { Leaderboard, submitScore } from './Leaderboard';
 import { soundEngine } from '../../utils/sound';
 import { scorePopupEvents } from '../../utils/scorePopupEvents';
+import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 
 // ── Asset paths ──────────────────────────────────────────────────────────────
 const MASCOT = {
@@ -27,16 +28,18 @@ const MASCOT = {
   hodl:       '/mascot/HODL.png',
 };
 
-const POWERUP_ICONS: Record<string, string> = {
+type ActivePowerup = NonNullable<PowerupType>;
+
+const POWERUP_ICONS: Record<ActivePowerup, string> = {
   shield: '🛡️', magnet: '🧲', invincible: '⚡', slowmo: '⏱',
 };
-const POWERUP_COLORS: Record<string, string> = {
+const POWERUP_COLORS: Record<ActivePowerup, string> = {
   shield:    'from-blue-500 to-cyan-400',
   magnet:    'from-purple-500 to-pink-400',
   invincible:'from-yellow-400 to-orange-500',
   slowmo:    'from-green-400 to-emerald-500',
 };
-const POWERUP_DURATIONS: Record<string, number> = {
+const POWERUP_DURATIONS: Record<ActivePowerup, number> = {
   shield: 8, magnet: 10, invincible: 6, slowmo: 5,
 };
 
@@ -51,7 +54,7 @@ const MILESTONE_LABELS: Record<number, string> = {
 // ── Character card ────────────────────────────────────────────────────────────
 const CharacterCard = ({
   label, emoji, desc, selected, onSelect,
-}: { id: CharacterType; label: string; emoji: string; desc: string; selected: boolean; onSelect: () => void }) => (
+}: { label: string; emoji: string; desc: string; selected: boolean; onSelect: () => void }) => (
   <button
     onClick={onSelect}
     className={`flex-1 rounded-2xl p-4 border-2 transition-all text-center ${
@@ -134,7 +137,16 @@ const GameScene: React.FC = () => {
   const [playerName, setPlayerName]           = useState('');
   const [walletAddr, setWalletAddr]           = useState('');
   const [submitted, setSubmitted]             = useState(false);
-  const [milstoneBanner, setMilestoneBanner]  = useState<string | null>(null);
+  const [milestoneBanner, setMilestoneBanner]  = useState<string | null>(null);
+
+  // Reown wallet
+  const { open: openWallet }                   = useAppKit();
+  const { address: connectedAddress, isConnected } = useAppKitAccount();
+
+  // Auto-populate wallet field when a wallet connects/disconnects
+  useEffect(() => {
+    setWalletAddr(connectedAddress ?? '');
+  }, [connectedAddress]);
 
   const isNewHighScore = gameState === 'GAMEOVER' && Math.floor(score) > 0 && Math.floor(score) >= highScore;
 
@@ -163,13 +175,17 @@ const GameScene: React.FC = () => {
   // Keyboard shortcut to start
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === ' ' || e.key === 'Enter') {
-        if (gameState === 'MENU' || gameState === 'GAMEOVER') handleStart();
+      if ((e.key === ' ' || e.key === 'Enter') && (gameState === 'MENU' || gameState === 'GAMEOVER')) {
+        if (gameState === 'MENU' && shouldShowTutorial()) {
+          setShowTutorial(true);
+        } else {
+          startGame();
+        }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [gameState]);
+  }, [gameState, startGame]);
 
   useEffect(() => {
     if (gameState === 'PLAYING') setSubmitted(false);
@@ -219,7 +235,7 @@ const GameScene: React.FC = () => {
           <Suspense fallback={null}>
             <CameraController playerPosRef={playerPosRef} />
             <TrackManager />
-            <Player positionRef={playerPosRef} hitboxRef={playerHitboxRef} onHitObstacle={() => {}} onCoinCollect={() => {}} />
+            <Player positionRef={playerPosRef} hitboxRef={playerHitboxRef} />
             <ObstacleManager playerPosRef={playerPosRef} playerHitboxRef={playerHitboxRef} onCrash={endGame} onStumble={() => {}} />
             <CollectibleManager playerPosRef={playerPosRef} />
             <PowerupManager playerPosRef={playerPosRef} />
@@ -297,11 +313,11 @@ const GameScene: React.FC = () => {
             )}
 
             {/* Milestone banner */}
-            {milstoneBanner && (
+            {milestoneBanner && (
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
                 <div className="px-6 py-3 rounded-2xl bg-cyan-500/30 border-2 border-cyan-400 backdrop-blur-sm animate-bounce">
                   <p className="text-cyan-300 font-black text-2xl text-center drop-shadow-[0_0_15px_rgba(34,211,238,1)]">
-                    {milstoneBanner}
+                    {milestoneBanner}
                   </p>
                 </div>
               </div>
@@ -351,11 +367,11 @@ const GameScene: React.FC = () => {
               <p className="text-slate-400 text-xs font-bold uppercase tracking-wider text-center">Choose Character</p>
               <div className="flex gap-3">
                 <CharacterCard
-                  id="penguin" label="Penguin" emoji="🐧" desc="Space explorer"
+                  label="Penguin" emoji="🐧" desc="Space explorer"
                   selected={character === 'penguin'} onSelect={() => setCharacter('penguin')}
                 />
                 <CharacterCard
-                  id="bear" label="Bear" emoji="🐻" desc="Tough adventurer"
+                  label="Bear" emoji="🐻" desc="Tough adventurer"
                   selected={character === 'bear'} onSelect={() => setCharacter('bear')}
                 />
               </div>
@@ -439,21 +455,34 @@ const GameScene: React.FC = () => {
                   onChange={e => setPlayerName(e.target.value)}
                   className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-cyan-400"
                 />
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="0x... wallet (optional)"
-                    value={walletAddr}
-                    onChange={e => setWalletAddr(e.target.value)}
-                    className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-cyan-400"
-                  />
+                {/* Wallet — connect via Reown or skip */}
+                {isConnected && connectedAddress ? (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-slate-900 border border-green-500/50 rounded-lg">
+                    <span className="text-green-400 text-xs shrink-0">●</span>
+                    <span className="text-white font-mono text-xs truncate flex-1">
+                      {connectedAddress.slice(0, 10)}…{connectedAddress.slice(-6)}
+                    </span>
+                    <button
+                      onClick={() => openWallet({ view: 'Account' })}
+                      className="text-slate-400 hover:text-white text-xs shrink-0 transition-colors"
+                    >
+                      change
+                    </button>
+                  </div>
+                ) : (
                   <button
-                    onClick={handleSubmit}
-                    className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors"
+                    onClick={() => openWallet()}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-sm transition-colors"
                   >
-                    SUBMIT
+                    🔗 Connect Wallet
                   </button>
-                </div>
+                )}
+                <button
+                  onClick={handleSubmit}
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors"
+                >
+                  SUBMIT
+                </button>
               </div>
             ) : (
               <div className="text-green-400 font-bold text-sm">✓ Score submitted!</div>
