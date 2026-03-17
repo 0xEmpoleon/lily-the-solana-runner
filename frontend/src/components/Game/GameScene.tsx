@@ -9,6 +9,7 @@ import { CollectibleManager } from './world/Collectibles';
 import { PowerupManager } from './world/PowerupManager';
 import { ParticleSystem } from './world/ParticleSystem';
 import { useGameState } from './store/useGameState';
+import { SceneAtmosphere } from './world/SceneAtmosphere';
 import { Tutorial, shouldShowTutorial } from './Tutorial';
 import { Leaderboard, submitScore } from './Leaderboard';
 import { soundEngine } from '../../utils/sound';
@@ -118,6 +119,29 @@ const GameScene: React.FC = () => {
     updateChallenge('combo', useGameState.getState().maxCombo);
   };
 
+  // Theme transition banner
+  const prevThemeRef = useRef('mars');
+  const getThemeLocal = (s: number) => {
+    if (s >= 8000) return 'space';
+    if (s >= 6000) return 'forest';
+    if (s >= 4000) return 'desert';
+    if (s >= 2000) return 'city';
+    return 'mars';
+  };
+  const THEME_BANNERS: Record<string, string> = {
+    city: '🌆 ENTERING CITY', desert: '🌵 ENTERING DESERT',
+    forest: '🌲 ENTERING FOREST', space: '🚀 ENTERING SPACE',
+  };
+  useEffect(() => {
+    const t = getThemeLocal(score);
+    if (t !== prevThemeRef.current && gameState === 'PLAYING') {
+      const text = THEME_BANNERS[t];
+      if (text) scorePopupEvents.emit({ text, color: '#e2e8f0', big: true });
+      prevThemeRef.current = t;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [score, gameState]);
+
   const toggleMute = () => setMuted(soundEngine.toggle());
 
   const prevRuns = gameState === 'GAMEOVER' ? runHistory.slice(1, 4) : runHistory.slice(0, 3);
@@ -126,7 +150,7 @@ const GameScene: React.FC = () => {
     <div className="w-full h-screen bg-black relative touch-none select-none">
       <Canvas shadows>
         <PerspectiveCamera makeDefault position={[0, 5.5, 11]} fov={62} />
-        <ambientLight intensity={activePowerup === 'slowmo' ? 1.2 : 0.6} />
+        <SceneAtmosphere />
         <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]} />
         <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade speed={activePowerup === 'slowmo' ? 0.2 : 1} />
 
@@ -167,6 +191,8 @@ const GameScene: React.FC = () => {
             muted={muted} onToggleMute={toggleMute}
             onStart={handleStart}
             onShowLeaderboard={() => setShowLeaderboard(true)}
+            isConnected={isConnected} connectedAddress={connectedAddress}
+            onOpenWallet={openWallet}
           />
         )}
 

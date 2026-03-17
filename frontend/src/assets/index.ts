@@ -34,6 +34,29 @@ export const MODEL_ASSETS = {
   STAR:         '',   // e.g. '/models/star.glb'
 } as const;
 
+// ── KayKit City Builder assets ────────────────────────────────────────────────
+const C = '/models/city';
+export const CITY_MODELS = {
+  ROAD:          `${C}/road_straight.gltf`,
+  BUILDING_A:    `${C}/building_A_withoutBase.gltf`,
+  BUILDING_B:    `${C}/building_B_withoutBase.gltf`,
+  BUILDING_C:    `${C}/building_C_withoutBase.gltf`,
+  BUILDING_D:    `${C}/building_D_withoutBase.gltf`,
+  BUILDING_E:    `${C}/building_E_withoutBase.gltf`,
+  BUILDING_F:    `${C}/building_F_withoutBase.gltf`,
+  STREETLIGHT:   `${C}/streetlight.gltf`,
+  TRAFFICLIGHT:  `${C}/trafficlight_A.gltf`,
+  BENCH:         `${C}/bench.gltf`,
+  BUSH:          `${C}/bush.gltf`,
+  WATERTOWER:    `${C}/watertower.gltf`,
+  FIREHYDRANT:   `${C}/firehydrant.gltf`,
+  DUMPSTER:      `${C}/dumpster.gltf`,
+  BOX_A:         `${C}/box_A.gltf`,
+  BOX_B:         `${C}/box_B.gltf`,
+  CAR_TAXI:      `${C}/car_taxi.gltf`,
+  CAR_SEDAN:     `${C}/car_sedan.gltf`,
+} as const;
+
 // ── Character: Space Penguin ──────────────────────────────────────────────────
 export const PENGUIN_COLORS = {
   suit:    '#87CEEB',  // sky blue
@@ -116,6 +139,7 @@ export const PARTICLE_COLORS = {
 } as const;
 
 // ── Track themes ──────────────────────────────────────────────────────────────
+// Score thresholds: mars 0–1999 | city 2000–3999 | desert 4000–5999 | forest 6000–7999 | space 8000+
 export const TRACK_THEMES = {
   mars: {
     ground: '#8B4513', wall: '#A0522D', rail: '#555555',
@@ -124,6 +148,11 @@ export const TRACK_THEMES = {
       { color: '#cc3300', shape: 'cone' as const, scale: [0.3,  1.2, 0.3 ] as [number, number, number], offsetX:  9.5  },
       { color: '#cc3300', shape: 'cone' as const, scale: [0.2,  0.8, 0.2 ] as [number, number, number], offsetX: -9.5  },
     ],
+  },
+  city: {
+    ground: '#2d3436', wall: '#636e72', rail: '#b2bec3',
+    skyColor: '#0a0a14', fogColor: '#1a1a2e',
+    decoration: [], // city uses GLTF buildings — no procedural deco
   },
   desert: {
     ground: '#C2955D', wall: '#D4A96A', rail: '#8B6914',
@@ -157,3 +186,24 @@ export const TRACK_THEMES = {
 } as const;
 
 export type ThemeName = keyof typeof TRACK_THEMES;
+
+// ── DAE stage assets (KayKit Fantasy/Nature pack — Collada format) ─────────────
+const D = '/models/dae';
+export const DAE_MODELS = {
+  // Desert
+  DESERT_TILE_LARGE:  `${D}/tileLarge_desert.dae`,
+  DESERT_TILE_HIGH:   `${D}/tileHigh_desert.dae`,
+  DESERT_PLANT_A:     `${D}/plantA_desert.dae`,
+  DESERT_PLANT_B:     `${D}/plantB_desert.dae`,
+  DESERT_ROCKS_A:     `${D}/rocksA_desert.dae`,
+  DESERT_ROCKS_B:     `${D}/rocksB_desert.dae`,
+  DESERT_DETAIL:      `${D}/detail_desert.dae`,
+  // Forest
+  FOREST_TILE_LARGE:  `${D}/tileLarge_forest.dae`,
+  FOREST_TILE_HIGH:   `${D}/tileHigh_forest.dae`,
+  FOREST_PLANT_A:     `${D}/plantA_forest.dae`,
+  FOREST_PLANT_B:     `${D}/plantB_forest.dae`,
+  FOREST_ROCKS_A:     `${D}/rocksA_forest.dae`,
+  FOREST_ROCKS_B:     `${D}/rocksB_forest.dae`,
+  FOREST_DETAIL:      `${D}/detail_forest.dae`,
+} as const;

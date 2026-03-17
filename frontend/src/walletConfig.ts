@@ -14,7 +14,7 @@ const metadata = {
   name: 'Mars Subway Runner',
   description: 'An epic 3D Mars-themed endless runner',
   url: typeof window !== 'undefined' ? window.location.origin : 'https://mars-subway-runner.vercel.app',
-  icons: [MASCOT_ASSETS.RUNNING],
+  icons: [`${typeof window !== 'undefined' ? window.location.origin : 'https://mars-subway-runner.vercel.app'}${MASCOT_ASSETS.RUNNING}`],
 };
 
 export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [mainnet];

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>City Track — Tiling Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0f; color: #e2e8f0; font-family: 'Courier New', monospace; }
+  h1 { text-align: center; padding: 14px; font-size: 14px; color: #38bdf8; letter-spacing: 3px; text-transform: uppercase; }
+  .views { display: flex; gap: 0; }
+  canvas { display: block; }
+  .label { text-align: center; font-size: 11px; color: #64748b; padding: 4px; letter-spacing: 2px; text-transform: uppercase; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 20px; justify-content: center; font-size: 11px; }
+  .leg { display: flex; align-items: center; gap: 5px; }
+  .dot { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+  .info { text-align: center; padding: 8px; font-size: 10px; color: #475569; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<h1>Mars Surfers — City Chunk Tiling System</h1>
+
+<div class="views">
+  <!-- TOP-DOWN VIEW -->
+  <div style="flex:1">
+    <div class="label">Top-Down (XZ plane)</div>
+    <canvas id="topCanvas" width="480" height="600"></canvas>
+  </div>
+  <!-- SIDE VIEW -->
+  <div style="flex:1">
+    <div class="label">Side View (ZY plane)</div>
+    <canvas id="sideCanvas" width="480" height="600"></canvas>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="leg"><div class="dot" style="background:#374151"></div>Asphalt ground</div>
+  <div class="leg"><div class="dot" style="background:#6b7280"></div>Sidewalk / wall</div>
+  <div class="leg"><div class="dot" style="background:#fbbf24"></div>Lane rail</div>
+  <div class="leg"><div class="dot" style="background:#3b82f6"></div>Building A–F</div>
+  <div class="leg"><div class="dot" style="background:#10b981"></div>Street prop</div>
+  <div class="leg"><div class="dot" style="background:#ef4444"></div>Obstacle</div>
+  <div class="leg"><div class="dot" style="background:#a78bfa"></div>Player lanes</div>
+  <div class="leg"><div class="dot" style="background:#38bdf8; opacity:0.4"></div>Chunk boundary</div>
+</div>
+
+<div class="info" id="infoBar">▶ Scroll: chunk[0] z=0 — PLAYING</div>
+
+<script>
+// ─── Constants (mirrors TrackManager) ──────────────────────────────────────
+const CHUNK_LENGTH   = 100;
+const VISIBLE_CHUNKS = 4;
+const LANE_WIDTH     = 2.5;
+const TRACK_W        = LANE_WIDTH * 3 + 2;   // 9.5 units
+
+// ─── Seeded RNG so placements are deterministic per chunk id ───────────────
+function seededRng(seed) {
+  let s = seed;
+  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+}
+
+// ─── Building catalogue (height ranges to mimic A–F withoutBase heights) ──
+const BUILDINGS = [
+  { label:'A', w:2.0, h:6,  color:'#1e3a5f' },
+  { label:'B', w:2.0, h:4,  color:'#1a3352' },
+  { label:'C', w:3.0, h:8,  color:'#1c3d6b' },
+  { label:'D', w:2.5, h:5,  color:'#163060' },
+  { label:'E', w:1.8, h:9,  color:'#1b3a5c' },
+  { label:'F', w:2.2, h:3,  color:'#173258' },
+  { label:'G', w:3.5, h:7,  color:'#1e2d4a' },
+  { label:'H', w:2.8, h:6,  color:'#1a3566' },
+];
+
+const STREET_PROPS = [
+  { label:'🔦', key:'streetlight', w:0.3, h:4,  color:'#10b981' },
+  { label:'🚦', key:'trafficlight',w:0.4, h:3.5,color:'#059669' },
+  { label:'🪑', key:'bench',       w:1.2, h:0.8, color:'#065f46' },
+  { label:'🌳', key:'bush',        w:1.0, h:1.2, color:'#14532d' },
+];
+
+const OBSTACLES = [
+  { label:'🗑 dumpster', w:1.8, h:1.2, color:'#7c3aed' },
+  { label:'📦 boxes',   w:1.0, h:2.0, color:'#c2410c' },
+  { label:'🚕 taxi',    w:2.0, h:1.3, color:'#dc2626' },
+];
+
+// ─── Generate placements for one chunk ─────────────────────────────────────
+function genChunk(chunkId) {
+  const rng = seededRng(chunkId * 3571 + 17);
+
+  // Buildings: left side (neg X) and right side (pos X), ~5 per side
+  const leftBuildings  = [];
+  const rightBuildings = [];
+  let zCursor = 5;
+  while (zCursor < CHUNK_LENGTH - 8) {
+    const b = BUILDINGS[Math.floor(rng() * BUILDINGS.length)];
+    const gap = 2 + rng() * 4;
+    leftBuildings.push({ ...b, z: zCursor, x: -(TRACK_W / 2 + 1 + b.w / 2) });
+    const b2 = BUILDINGS[Math.floor(rng() * BUILDINGS.length)];
+    rightBuildings.push({ ...b2, z: zCursor, x: (TRACK_W / 2 + 1 + b2.w / 2) });
+    zCursor += Math.max(b.w, b2.w) + gap;
+  }
+
+  // Street props: every ~10 units on sidewalk edges
+  const props = [];
+  for (let z = 8; z < CHUNK_LENGTH - 4; z += 10 + rng() * 5) {
+    const p = STREET_PROPS[Math.floor(rng() * STREET_PROPS.length)];
+    const side = rng() > 0.5 ? 1 : -1;
+    props.push({ ...p, z, x: side * (TRACK_W / 2 + 0.6) });
+  }
+
+  // Obstacles: 0–2 per chunk, on one of 3 lanes
+  const obstacles = [];
+  const numObs = Math.floor(rng() * 3);
+  const usedZones = new Set();
+  for (let i = 0; i < numObs; i++) {
+    let z; let tries = 0;
+    do { z = Math.round(15 + rng() * 70); tries++; } while (usedZones.has(z) && tries < 10);
+    usedZones.add(z);
+    const lane = Math.floor(rng() * 3) - 1;   // -1, 0, +1
+    const obs  = OBSTACLES[Math.floor(rng() * OBSTACLES.length)];
+    obstacles.push({ ...obs, z, x: lane * LANE_WIDTH });
+  }
+
+  return { leftBuildings, rightBuildings, props, obstacles };
+}
+
+// ─── Pre-generate 4 chunks ──────────────────────────────────────────────────
+let chunks = Array.from({ length: VISIBLE_CHUNKS }, (_, i) => ({
+  id: i,
+  z: -i * CHUNK_LENGTH,
+  data: genChunk(i),
+}));
+let nextId = VISIBLE_CHUNKS;
+let scrollZ = 0;
+let speed   = 18; // world units / second
+
+// ─── Canvas setup ───────────────────────────────────────────────────────────
+const topC  = document.getElementById('topCanvas');
+const sideC = document.getElementById('sideCanvas');
+const topCtx  = topC.getContext('2d');
+const sideCtx = sideC.getContext('2d');
+
+// View params — top-down
+const TOP = {
+  W: topC.width, H: topC.height,
+  // world space: X ∈ [-14, 14], Z ∈ [-50, 50]
+  worldW: 28, worldH: CHUNK_LENGTH * VISIBLE_CHUNKS * 0.85,
+  cx: topC.width / 2,
+  toX(wx) { return this.cx + wx * (this.W / this.worldW); },
+  toY(wz) {
+    // Camera is at z≈0, looking -Z; map world Z → canvas Y
+    // world Z 0 → bottom of canvas, world Z -350 → top
+    return this.H * 0.88 - (wz + 10) * (this.H / this.worldH);
+  },
+  scaleX(ww) { return ww * (this.W / this.worldW); },
+  scaleZ(wl) { return wl * (this.H / this.worldH); },
+};
+
+const SIDE = {
+  W: sideC.width, H: sideC.height,
+  worldW: CHUNK_LENGTH * VISIBLE_CHUNKS * 0.85,
+  worldH: 14,   // Y range 0–14
+  toX(wz) { return this.W * 0.05 + (wz + 10) * (this.W * 0.9 / this.worldW); },
+  toY(wy) { return this.H * 0.92 - wy * (this.H * 0.82 / this.worldH); },
+  scaleZ(wl) { return wl * (this.W * 0.9 / this.worldW); },
+  scaleY(wh) { return wh * (this.H * 0.82 / this.worldH); },
+};
+
+// ─── Draw helpers ───────────────────────────────────────────────────────────
+function hexAlpha(hex, a) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function drawTopChunk(ctx, chunk) {
+  const z0 = chunk.z;       // back edge (far)
+  const z1 = chunk.z + CHUNK_LENGTH; // front edge (near camera)
+
+  const cY0 = TOP.toY(z0);
+  const cY1 = TOP.toY(z1);
+  const cH  = cY1 - cY0;
+
+  // Ground
+  ctx.fillStyle = '#1f2937';
+  ctx.fillRect(TOP.toX(-TRACK_W/2), cY0, TOP.scaleX(TRACK_W), cH);
+
+  // Sidewalk strips
+  ctx.fillStyle = '#374151';
+  const swW = TOP.scaleX(1.2);
+  ctx.fillRect(TOP.toX(-TRACK_W/2 - 1.2), cY0, swW, cH);
+  ctx.fillRect(TOP.toX( TRACK_W/2),       cY0, swW, cH);
+
+  // Lane rails
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 1.5;
+  [-LANE_WIDTH, 0, LANE_WIDTH].forEach(lx => {
+    [-0.5, 0.5].forEach(rx => {
+      ctx.beginPath();
+      ctx.moveTo(TOP.toX(lx + rx * 0.3), cY0);
+      ctx.lineTo(TOP.toX(lx + rx * 0.3), cY1);
+      ctx.stroke();
+    });
+  });
+
+  // Chunk boundary
+  ctx.strokeStyle = hexAlpha('#38bdf8', 0.35);
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(0, cY0);
+  ctx.lineTo(TOP.W, cY0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Chunk ID label
+  ctx.fillStyle = hexAlpha('#38bdf8', 0.45);
+  ctx.font = '9px Courier New';
+  ctx.fillText(`chunk[${chunk.id % VISIBLE_CHUNKS}]  z=${Math.round(chunk.z)}`, TOP.toX(-TRACK_W/2 - 8), cY0 + 10);
+
+  // ── Buildings ──
+  [...chunk.data.leftBuildings, ...chunk.data.rightBuildings].forEach(b => {
+    const wz = chunk.z + b.z;
+    const bW = TOP.scaleX(b.w);
+    const bD = TOP.scaleZ(b.w * 1.5);
+    const bX = TOP.toX(b.x) - bW / 2;
+    const bY = TOP.toY(wz) - bD / 2;
+    ctx.fillStyle = b.color;
+    ctx.fillRect(bX, bY, bW, bD);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(bX, bY, bW, bD);
+    ctx.fillStyle = '#93c5fd';
+    ctx.font = '7px Courier New';
+    ctx.fillText(b.label, bX + 2, bY + 9);
+  });
+
+  // ── Street props ──
+  chunk.data.props.forEach(p => {
+    const wz = chunk.z + p.z;
+    const pX = TOP.toX(p.x);
+    const pY = TOP.toY(wz);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(pX, pY, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // ── Obstacles ──
+  chunk.data.obstacles.forEach(ob => {
+    const wz = chunk.z + ob.z;
+    const oW = TOP.scaleX(ob.w);
+    const oD = TOP.scaleZ(ob.w);
+    const oX = TOP.toX(ob.x) - oW / 2;
+    const oY = TOP.toY(wz) - oD / 2;
+    ctx.fillStyle = ob.color;
+    ctx.fillRect(oX, oY, oW, oD);
+    ctx.strokeStyle = '#fca5a5';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(oX, oY, oW, oD);
+  });
+}
+
+function drawSideChunk(ctx, chunk) {
+  const z0 = chunk.z;
+  const z1 = chunk.z + CHUNK_LENGTH;
+
+  const cX0 = SIDE.toX(z0);
+  const cX1 = SIDE.toX(z1);
+  const cW  = cX1 - cX0;
+
+  // Ground
+  ctx.fillStyle = '#1f2937';
+  ctx.fillRect(cX0, SIDE.toY(0), cW, SIDE.scaleY(0.2));
+
+  // Asphalt face
+  ctx.fillStyle = '#111827';
+  ctx.fillRect(cX0, SIDE.toY(0.25), cW, SIDE.scaleY(0.25));
+
+  // Chunk boundary
+  ctx.strokeStyle = hexAlpha('#38bdf8', 0.35);
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(cX0, 0);
+  ctx.lineTo(cX0, SIDE.H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── Buildings (side view — pick left side buildings) ──
+  chunk.data.leftBuildings.forEach(b => {
+    const wz = chunk.z + b.z;
+    const bX = SIDE.toX(wz) - SIDE.scaleZ(b.w) / 2;
+    const bW = SIDE.scaleZ(b.w * 1.5);
+    const bY = SIDE.toY(b.h);
+    const bH = SIDE.scaleY(b.h);
+    ctx.fillStyle = b.color;
+    ctx.fillRect(bX, bY, bW, bH);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(bX, bY, bW, bH);
+    // windows
+    ctx.fillStyle = hexAlpha('#93c5fd', 0.3);
+    for (let row = 0; row < Math.floor(b.h / 1.5); row++) {
+      for (let col = 0; col < 2; col++) {
+        ctx.fillRect(
+          bX + 3 + col * (bW / 2 - 4),
+          bY + 3 + row * SIDE.scaleY(1.5),
+          Math.max(bW / 2 - 8, 3),
+          Math.max(SIDE.scaleY(0.8), 3)
+        );
+      }
+    }
+    ctx.fillStyle = '#93c5fd';
+    ctx.font = '7px Courier New';
+    ctx.fillText(b.label, bX + 2, bY - 2);
+  });
+
+  // ── Street props ──
+  chunk.data.props.forEach(p => {
+    const wz = chunk.z + p.z;
+    const pX = SIDE.toX(wz);
+    const pY = SIDE.toY(p.h);
+    const pH = SIDE.scaleY(p.h);
+    ctx.strokeStyle = p.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pX, SIDE.toY(0));
+    ctx.lineTo(pX, pY);
+    ctx.stroke();
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(pX, pY, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // ── Obstacles ──
+  chunk.data.obstacles.forEach(ob => {
+    const wz = chunk.z + ob.z;
+    const oX = SIDE.toX(wz) - SIDE.scaleZ(ob.w) / 2;
+    const oW = SIDE.scaleZ(ob.w);
+    const oY = SIDE.toY(ob.h);
+    const oH = SIDE.scaleY(ob.h);
+    ctx.fillStyle = ob.color;
+    ctx.fillRect(oX, oY, oW, oH);
+    ctx.strokeStyle = '#fca5a5';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(oX, oY, oW, oH);
+  });
+}
+
+function drawPlayer(ctx, isTop) {
+  const px = 0, pz = 0; // camera-relative
+  if (isTop) {
+    ctx.fillStyle = '#a78bfa';
+    ctx.beginPath();
+    ctx.arc(TOP.toX(px), TOP.toY(pz + 2), 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 8px Courier New';
+    ctx.fillText('▲ CAM', TOP.toX(-2), TOP.toY(2) - 8);
+  } else {
+    ctx.fillStyle = '#a78bfa';
+    const sX = SIDE.toX(pz + 2);
+    const sY = SIDE.toY(1.8);
+    ctx.beginPath();
+    ctx.arc(sX, sY, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 8px Courier New';
+    ctx.fillText('▲CAM', sX - 10, sY - 8);
+  }
+}
+
+function drawAxes(ctx, isTop) {
+  if (isTop) {
+    ctx.fillStyle = '#334155';
+    ctx.font = '9px Courier New';
+    ctx.fillText('← X →', 4, TOP.H - 6);
+    ctx.fillText('Z ↑ (away)', TOP.W / 2 - 20, 12);
+  } else {
+    ctx.fillStyle = '#334155';
+    ctx.font = '9px Courier New';
+    ctx.fillText('Z → (scroll)', SIDE.W - 90, SIDE.H - 6);
+    ctx.fillText('Y ↑', 4, 14);
+  }
+}
+
+// ─── Ground line (side view) ────────────────────────────────────────────────
+function drawGroundLine(ctx) {
+  ctx.strokeStyle = '#374151';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, SIDE.toY(0));
+  ctx.lineTo(SIDE.W, SIDE.toY(0));
+  ctx.stroke();
+}
+
+// ─── Y = 0 reference line (side view) ───────────────────────────────────────
+function drawYLabels(ctx) {
+  [0, 2, 4, 6, 8, 10].forEach(y => {
+    ctx.strokeStyle = hexAlpha('#1e293b', 0.8);
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    ctx.moveTo(0, SIDE.toY(y));
+    ctx.lineTo(SIDE.W, SIDE.toY(y));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#334155';
+    ctx.font = '8px Courier New';
+    ctx.fillText(`y=${y}`, 2, SIDE.toY(y) - 2);
+  });
+}
+
+// ─── Recycle legend (top) ───────────────────────────────────────────────────
+function drawRecycleDiagram(ctx) {
+  const x = TOP.W - 105, y = 14, w = 96, lh = 13;
+  ctx.fillStyle = hexAlpha('#0f172a', 0.9);
+  ctx.fillRect(x - 4, y - 2, w + 8, lh * 6 + 4);
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = '8px Courier New';
+  ctx.fillText('RECYCLE LOGIC:', x, y + lh * 0);
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText('if chunk.z > CHUNK_LEN', x, y + lh * 1);
+  ctx.fillText('  newZ = minZ - 100', x, y + lh * 2);
+  ctx.fillText('  genChunk(nextId++)', x, y + lh * 3);
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillText('→ seamless infinite loop', x, y + lh * 4);
+  ctx.fillStyle = '#64748b';
+  ctx.fillText('fired ~0.5× per second', x, y + lh * 5);
+}
+
+// ─── Main render loop ───────────────────────────────────────────────────────
+let last = null;
+function frame(ts) {
+  if (!last) last = ts;
+  const dt = Math.min((ts - last) / 1000, 0.05);
+  last = ts;
+
+  // Scroll
+  scrollZ += speed * dt;
+  chunks.forEach(c => { c.z += speed * dt; });
+
+  // Recycle
+  chunks.forEach(c => {
+    if (c.z > CHUNK_LENGTH) {
+      const minZ = Math.min(...chunks.map(x => x.z));
+      c.z = minZ - CHUNK_LENGTH;
+      c.id = nextId++;
+      c.data = genChunk(c.id);
+    }
+  });
+
+  // ── Top-down ──
+  topCtx.fillStyle = '#0a0a0f';
+  topCtx.fillRect(0, 0, topC.width, topC.height);
+  chunks.forEach(c => drawTopChunk(topCtx, c));
+  drawPlayer(topCtx, true);
+  drawRecycleDiagram(topCtx);
+  drawAxes(topCtx, true);
+
+  // ── Side view ──
+  sideCtx.fillStyle = '#0a0a0f';
+  sideCtx.fillRect(0, 0, sideC.width, sideC.height);
+  drawYLabels(sideCtx);
+  drawGroundLine(sideCtx);
+  chunks.forEach(c => drawSideChunk(sideCtx, c));
+  drawPlayer(sideCtx, false);
+  drawAxes(sideCtx, false);
+
+  // Info bar
+  const front = chunks.reduce((a,b) => a.z > b.z ? a : b);
+  document.getElementById('infoBar').textContent =
+    `▶  Speed: ${speed} u/s  |  Chunk front z=${Math.round(front.z)}  |  Next chunk id: ${nextId}  |  Active: [${chunks.map(c => c.id).join(', ')}]`;
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ─── Speed slider ───────────────────────────────────────────────────────────
+const ctrl = document.createElement('div');
+ctrl.style.cssText = 'text-align:center;padding:6px;font-size:11px;color:#64748b;';
+ctrl.innerHTML = `Speed: <input id="spd" type="range" min="5" max="80" value="18" style="vertical-align:middle">
+  <span id="spdVal">18</span> u/s &nbsp;|&nbsp;
+  Chunk length: ${CHUNK_LENGTH} units &nbsp;|&nbsp;
+  Visible chunks: ${VISIBLE_CHUNKS} &nbsp;|&nbsp;
+  Track width: ${TRACK_W} units (3 lanes × ${LANE_WIDTH})`;
+document.body.appendChild(ctrl);
+document.getElementById('spd').oninput = e => {
+  speed = +e.target.value;
+  document.getElementById('spdVal').textContent = speed;
+};
+</script>
+</body>
+</html>

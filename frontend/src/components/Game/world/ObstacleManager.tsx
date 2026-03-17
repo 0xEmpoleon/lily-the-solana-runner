@@ -2,13 +2,18 @@ import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGameState } from '../store/useGameState';
-import { Train, LowBarrier, HighBarrier, SpikeRoller } from './Obstacles';
+import {
+  FireHydrant, BenchObstacle, DumpsterBarrier, BoxStack,
+  ParkedCar, MovingCar, TrafficGate, WaterTowerBlock,
+} from './Obstacles';
 import { soundEngine } from '../../../utils/sound';
 import { haptics } from '../../../utils/haptics';
 import { particleEvents } from '../../../utils/particleEvents';
 import { scorePopupEvents } from '../../../utils/scorePopupEvents';
 
-type ObstacleType = 'TRAIN_STATIC' | 'TRAIN_MOVING' | 'LOW_BARRIER' | 'HIGH_BARRIER' | 'SPIKE_ROLLER';
+type ObstacleType =
+  | 'FIRE_HYDRANT' | 'BENCH'        | 'DUMPSTER'     | 'BOX_STACK'
+  | 'PARKED_CAR'   | 'MOVING_CAR'   | 'TRAFFIC_GATE' | 'WATERTOWER';
 
 type ObstacleData = {
   id: number;
@@ -37,26 +42,64 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
   const nextZ   = useRef(-100);
   const nextId  = useRef(0);
 
-  // Gap shrinks continuously with score — no hard floor until very high scores
-  const getGap = () => {
-    const t = Math.min(score / 3000, 1);
-    const base = Math.max(10, 40 - t * 30);           // 40 → 10 over 3000 score
-    return base + Math.random() * base * 0.35;
+  // ── Phase-based gap — generous early, tight late ────────────────────────
+  const getGap = (): number => {
+    if (score < 2000) return 38 + Math.random() * 38 * 0.25;  // ~38–47  Mars
+    if (score < 4000) return 27 + Math.random() * 27 * 0.30;  // ~27–35  City
+    if (score < 6000) return 18 + Math.random() * 18 * 0.30;  // ~18–23  Desert
+    if (score < 8000) return 12 + Math.random() * 12 * 0.25;  // ~12–15  Forest
+    return              8  + Math.random() *  8 * 0.20;        //  ~8–10  Space
   };
 
-  // Obstacle type probabilities shift toward harder types as score increases
+  // ── Phase-based obstacle type — harder types unlock per zone ────────────
   const getObstacleType = (): { type: ObstacleType; width: number; height: number; depth: number } => {
-    const h = Math.min(score / 2000, 1); // 0 → 1 over 2000 score
     const r = Math.random();
-    const p1 = 0.35 - h * 0.13;               // LOW_BARRIER:   35% → 22%
-    const p2 = p1 + 0.18;                      // HIGH_BARRIER:  18% constant
-    const p3 = p2 + 0.12 + h * 0.06;          // SPIKE_ROLLER:  12% → 18%
-    const p4 = p3 + 0.15 + h * 0.12;          // TRAIN_MOVING:  15% → 27%
-    if (r < p1)  return { type: 'LOW_BARRIER',  width: 2.2, height: 1,   depth: 0.5  };
-    if (r < p2)  return { type: 'HIGH_BARRIER', width: 2.2, height: 3,   depth: 0.2  };
-    if (r < p3)  return { type: 'SPIKE_ROLLER', width: 2.2, height: 1.2, depth: 2.2  };
-    if (r < p4)  return { type: 'TRAIN_MOVING', width: 2.2, height: 4,   depth: 15   };
-                 return { type: 'TRAIN_STATIC', width: 2.2, height: 4,   depth: 15   };
+
+    // Phase 1 — Mars (0–1999): only easy jumpable obstacles
+    if (score < 2000) {
+      if (r < 0.50) return { type: 'FIRE_HYDRANT', width: 1.4, height: 0.8, depth: 0.8 };
+      if (r < 0.85) return { type: 'BENCH',        width: 1.8, height: 0.9, depth: 1.2 };
+                    return { type: 'DUMPSTER',      width: 2.0, height: 1.2, depth: 1.5 };
+    }
+
+    // Phase 2 — City (2000–3999): all types introduced at low probability
+    if (score < 4000) {
+      if (r < 0.10) return { type: 'FIRE_HYDRANT', width: 1.4, height: 0.8, depth: 0.8 };
+      if (r < 0.25) return { type: 'BENCH',        width: 1.8, height: 0.9, depth: 1.2 };
+      if (r < 0.50) return { type: 'DUMPSTER',     width: 2.0, height: 1.2, depth: 1.5 };
+      if (r < 0.70) return { type: 'BOX_STACK',    width: 1.8, height: 2.2, depth: 1.5 };
+      if (r < 0.85) return { type: 'PARKED_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+      if (r < 0.90) return { type: 'MOVING_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+      if (r < 0.95) return { type: 'TRAFFIC_GATE', width: 2.2, height: 2.5, depth: 0.5 };
+                    return { type: 'WATERTOWER',    width: 2.0, height: 3.0, depth: 2.0 };
+    }
+
+    // Phase 3 — Desert (4000–5999): no easy types, hard types prominent
+    if (score < 6000) {
+      if (r < 0.15) return { type: 'DUMPSTER',     width: 2.0, height: 1.2, depth: 1.5 };
+      if (r < 0.35) return { type: 'BOX_STACK',    width: 1.8, height: 2.2, depth: 1.5 };
+      if (r < 0.50) return { type: 'PARKED_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+      if (r < 0.70) return { type: 'MOVING_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+      if (r < 0.85) return { type: 'TRAFFIC_GATE', width: 2.2, height: 2.5, depth: 0.5 };
+                    return { type: 'WATERTOWER',    width: 2.0, height: 3.0, depth: 2.0 };
+    }
+
+    // Phase 4 — Forest (6000–7999): heavy on lane-switch obstacles
+    if (score < 8000) {
+      if (r < 0.10) return { type: 'DUMPSTER',     width: 2.0, height: 1.2, depth: 1.5 };
+      if (r < 0.20) return { type: 'BOX_STACK',    width: 1.8, height: 2.2, depth: 1.5 };
+      if (r < 0.30) return { type: 'PARKED_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+      if (r < 0.55) return { type: 'MOVING_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+      if (r < 0.80) return { type: 'TRAFFIC_GATE', width: 2.2, height: 2.5, depth: 0.5 };
+                    return { type: 'WATERTOWER',    width: 2.0, height: 3.0, depth: 2.0 };
+    }
+
+    // Phase 5 — Space (8000+): relentless, no easy types
+    if (r < 0.10) return { type: 'DUMPSTER',     width: 2.0, height: 1.2, depth: 1.5 };
+    if (r < 0.25) return { type: 'BOX_STACK',    width: 1.8, height: 2.2, depth: 1.5 };
+    if (r < 0.50) return { type: 'MOVING_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+    if (r < 0.75) return { type: 'TRAFFIC_GATE', width: 2.2, height: 2.5, depth: 0.5 };
+                  return { type: 'WATERTOWER',    width: 2.0, height: 3.0, depth: 2.0 };
   };
 
   useFrame((_s, delta) => {
@@ -84,7 +127,7 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
       let hasCrashed = false;
 
       const nextList = prev.map(obs => {
-        const moveSpeed = obs.type === 'TRAIN_MOVING' ? effectiveSpeed * 1.5 : effectiveSpeed;
+        const moveSpeed = obs.type === 'MOVING_CAR' ? effectiveSpeed * 1.5 : effectiveSpeed;
         const newZ = obs.z + moveSpeed * delta;
 
         // Near-miss detection: obstacle just passed player (crosses z=0 from behind)
@@ -109,14 +152,19 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
             const hasShield    = activePowerup === 'shield';
 
             let cleared = false;
-            if (obs.type === 'LOW_BARRIER' && pPos.y > 1.2)         cleared = true;
-            if (obs.type === 'SPIKE_ROLLER' && pPos.y > 1.0)        cleared = true;
-            if (obs.type === 'HIGH_BARRIER' && pHit.height < 1.0)   cleared = true;
+            if (obs.type === 'FIRE_HYDRANT' && pPos.y > 1.8)       cleared = true;
+            if (obs.type === 'BENCH'        && pPos.y > 1.8)        cleared = true;
+            if (obs.type === 'DUMPSTER'     && pPos.y > 2.2)        cleared = true;
+            if (obs.type === 'BOX_STACK'    && pPos.y > 3.2)        cleared = true;
+            if (obs.type === 'PARKED_CAR'   && pPos.y > 1.8)        cleared = true;
+            if (obs.type === 'MOVING_CAR'   && pPos.y > 2.0)        cleared = true;
+            if (obs.type === 'TRAFFIC_GATE' && pHit.height < 1.5)   cleared = true;
+            // WATERTOWER: no clearance — must be in a different lane
 
             if (!cleared) {
               if (isInvincible) {
                 // phase through
-              } else if (obs.type === 'HIGH_BARRIER' && pPos.y > 0 && pHit.height > 1.0) {
+              } else if (obs.type === 'TRAFFIC_GATE' && pPos.y > 0 && pHit.height > 1.5) {
                 if (hasShield) {
                   soundEngine.shieldBlock();
                   haptics.shield();
@@ -161,11 +209,14 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
   return (
     <group>
       {obstacles.map(obs => {
-        if (obs.type === 'TRAIN_STATIC') return <Train key={obs.id} lane={obs.lane} z={obs.z} />;
-        if (obs.type === 'TRAIN_MOVING') return <Train key={obs.id} lane={obs.lane} z={obs.z} />;
-        if (obs.type === 'LOW_BARRIER')  return <LowBarrier  key={obs.id} lane={obs.lane} z={obs.z} />;
-        if (obs.type === 'HIGH_BARRIER') return <HighBarrier key={obs.id} lane={obs.lane} z={obs.z} />;
-        if (obs.type === 'SPIKE_ROLLER') return <SpikeRoller key={obs.id} lane={obs.lane} z={obs.z} />;
+        if (obs.type === 'FIRE_HYDRANT')  return <FireHydrant     key={obs.id} lane={obs.lane} z={obs.z} />;
+        if (obs.type === 'BENCH')         return <BenchObstacle   key={obs.id} lane={obs.lane} z={obs.z} />;
+        if (obs.type === 'DUMPSTER')      return <DumpsterBarrier key={obs.id} lane={obs.lane} z={obs.z} />;
+        if (obs.type === 'BOX_STACK')     return <BoxStack        key={obs.id} lane={obs.lane} z={obs.z} />;
+        if (obs.type === 'PARKED_CAR')    return <ParkedCar       key={obs.id} lane={obs.lane} z={obs.z} variant={obs.id % 2 === 0 ? 'taxi' : 'sedan'} />;
+        if (obs.type === 'MOVING_CAR')    return <MovingCar       key={obs.id} lane={obs.lane} z={obs.z} />;
+        if (obs.type === 'TRAFFIC_GATE')  return <TrafficGate     key={obs.id} lane={obs.lane} z={obs.z} />;
+        if (obs.type === 'WATERTOWER')    return <WaterTowerBlock key={obs.id} lane={obs.lane} z={obs.z} />;
         return null;
       })}
     </group>

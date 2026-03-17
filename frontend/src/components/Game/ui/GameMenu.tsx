@@ -48,19 +48,24 @@ const ChallengeBadge = ({ dc }: { dc: DailyChallenge }) => {
 
 // ── GameMenu ──────────────────────────────────────────────────────────────────
 interface GameMenuProps {
-  highScore:         number;
-  character:         CharacterType;
-  setCharacter:      (c: CharacterType) => void;
-  dailyChallenge:    DailyChallenge;
-  muted:             boolean;
-  onToggleMute:      () => void;
-  onStart:           () => void;
-  onShowLeaderboard: () => void;
+  highScore:          number;
+  character:          CharacterType;
+  setCharacter:       (c: CharacterType) => void;
+  dailyChallenge:     DailyChallenge;
+  muted:              boolean;
+  onToggleMute:       () => void;
+  onStart:            () => void;
+  onShowLeaderboard:  () => void;
+  isConnected:        boolean;
+  connectedAddress?:  string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onOpenWallet:       (opts?: any) => void;
 }
 
 export const GameMenu: React.FC<GameMenuProps> = ({
   highScore, character, setCharacter, dailyChallenge,
   muted, onToggleMute, onStart, onShowLeaderboard,
+  isConnected, connectedAddress, onOpenWallet,
 }) => (
   <div className="absolute inset-0 flex flex-col items-center justify-start pt-10 pb-6 overflow-y-auto bg-slate-900/88 pointer-events-auto backdrop-blur-sm gap-4">
     <button className="absolute top-4 right-4 text-slate-400 hover:text-white text-xl" onClick={onToggleMute}>
@@ -101,6 +106,26 @@ export const GameMenu: React.FC<GameMenuProps> = ({
     <button onClick={onShowLeaderboard} className="text-slate-300 hover:text-white text-sm underline transition-colors">
       🏆 View Leaderboard
     </button>
+
+    {/* Wallet connect */}
+    <div className="flex items-center justify-center">
+      {isConnected && connectedAddress ? (
+        <button
+          onClick={() => onOpenWallet({ view: 'Account' })}
+          className="flex items-center gap-1 px-3 py-1 rounded-full bg-green-900/40 border border-green-500/50 text-green-400 text-xs"
+        >
+          <span>●</span>
+          <span>{connectedAddress.slice(0, 8)}…{connectedAddress.slice(-4)}</span>
+        </button>
+      ) : (
+        <button
+          onClick={() => onOpenWallet()}
+          className="flex items-center gap-1 px-3 py-1 rounded-full border border-slate-600 text-slate-400 hover:border-cyan-400 hover:text-cyan-400 text-xs transition-colors"
+        >
+          🔗 Connect Wallet
+        </button>
+      )}
+    </div>
 
     <div className="text-center text-slate-500 text-xs space-y-0.5">
       <p>← → Lane &nbsp;|&nbsp; ↑ Jump &nbsp;|&nbsp; ↑↑ Double Jump &nbsp;|&nbsp; ↓ Roll</p>
