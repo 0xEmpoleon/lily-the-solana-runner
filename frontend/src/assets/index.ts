@@ -92,11 +92,13 @@ export const COLLECTIBLE_COLORS = {
 } as const;
 
 // ── Power-ups ─────────────────────────────────────────────────────────────────
+// duration (seconds) is the single source of truth — imported by both
+// PowerupManager (activation) and GameHUD (progress bar width calculation).
 export const POWERUP_PALETTE = {
-  shield:     { color: '#38bdf8', emissive: '#0ea5e9' },
-  magnet:     { color: '#c084fc', emissive: '#a855f7' },
-  invincible: { color: '#facc15', emissive: '#f59e0b' },
-  slowmo:     { color: '#4ade80', emissive: '#22c55e' },
+  shield:     { color: '#38bdf8', emissive: '#0ea5e9', duration: 8  },
+  magnet:     { color: '#c084fc', emissive: '#a855f7', duration: 10 },
+  invincible: { color: '#facc15', emissive: '#f59e0b', duration: 6  },
+  slowmo:     { color: '#4ade80', emissive: '#22c55e', duration: 5  },
 } as const;
 
 // ── Player powerup visual effects ─────────────────────────────────────────────

@@ -16,7 +16,7 @@ interface PlayerProps {
 const LANE_WIDTH    = 2.5;
 const GRAVITY       = -45;
 const JUMP_FORCE    = 15;
-const JUMP2_FORCE   = 11;   // double-jump is slightly weaker
+const JUMP2_FORCE   = 11;
 const ROLL_DURATION = 0.8;
 
 const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
@@ -26,14 +26,20 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
   const [lane, setLane]               = useState(0);
   const [playerState, setPlayerState] = useState<'RUN' | 'JUMP' | 'ROLL' | 'STUMBLE'>('RUN');
 
+  // Keep a ref so input handlers always read the latest value without
+  // being listed as useEffect deps (prevents re-registration on every duck/jump).
+  const playerStateRef = useRef(playerState);
+  playerStateRef.current = playerState;
+
   const velocityY   = useRef(0);
   const rollTimer   = useRef(0);
   const wasAirborne = useRef(false);
-  const jumpsLeft   = useRef(2);   // 2 = can jump twice (ground jump + double jump)
+  const jumpsLeft   = useRef(2);
 
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
+  // Only re-register handlers when gameState changes, not on every playerState change.
   useEffect(() => {
     if (gameState !== 'PLAYING') return;
 
@@ -54,7 +60,7 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
     };
 
     const handleRoll = () => {
-      if (playerState !== 'ROLL') {
+      if (playerStateRef.current !== 'ROLL') {
         setPlayerState('ROLL');
         rollTimer.current = ROLL_DURATION;
         if (groupRef.current && groupRef.current.position.y > 0) {
@@ -93,21 +99,18 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [gameState, playerState]);
+  }, [gameState]); // playerState removed — read via ref instead
 
   useFrame((_state, delta) => {
     if (!groupRef.current || gameState !== 'PLAYING') return;
 
-    // Lateral movement
     groupRef.current.position.x = THREE.MathUtils.lerp(
       groupRef.current.position.x, lane * LANE_WIDTH, delta * 12
     );
 
-    // Vertical physics
     groupRef.current.position.y += velocityY.current * delta;
     velocityY.current += GRAVITY * delta;
 
-    // Floor
     if (groupRef.current.position.y <= 0) {
       groupRef.current.position.y = 0;
       if (wasAirborne.current) {
@@ -116,23 +119,21 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
         wasAirborne.current = false;
       }
       velocityY.current = 0;
-      jumpsLeft.current = 2;  // reset double-jump on landing
-      if (playerState === 'JUMP') setPlayerState('RUN');
+      jumpsLeft.current = 2;
+      if (playerStateRef.current === 'JUMP') setPlayerState('RUN');
     } else {
       wasAirborne.current = true;
     }
 
-    // Roll timer
-    if (playerState === 'ROLL') {
+    if (playerStateRef.current === 'ROLL') {
       rollTimer.current -= delta;
       if (rollTimer.current <= 0 && groupRef.current.position.y <= 0) setPlayerState('RUN');
     }
 
-    // Export position/hitbox
     positionRef.current.copy(groupRef.current.position);
     hitboxRef.current = {
-      y: groupRef.current.position.y,
-      height: playerState === 'ROLL' ? 0.8 : 1.8,
+      y:      groupRef.current.position.y,
+      height: playerStateRef.current === 'ROLL' ? 0.8 : 1.8,
     };
   });
 
@@ -142,21 +143,18 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
 
   return (
     <group ref={groupRef}>
-      {/* Shield glow ring */}
       {hasShield && (
         <mesh>
           <torusGeometry args={[1.0, 0.08, 8, 32]} />
           <meshStandardMaterial color={EFFECT_COLORS.shield.ring} emissive={EFFECT_COLORS.shield.ring} emissiveIntensity={3} transparent opacity={0.7} />
         </mesh>
       )}
-      {/* Invincible aura */}
       {isInvincible && (
         <mesh>
           <sphereGeometry args={[1.2, 12, 12]} />
           <meshStandardMaterial color={EFFECT_COLORS.invincible.aura} emissive={EFFECT_COLORS.invincible.auraEmissive} emissiveIntensity={1.5} transparent opacity={0.15} />
         </mesh>
       )}
-      {/* Slow-mo trail rings */}
       {isSlowMo && (
         <>
           <mesh rotation={[0, 0, 0]}>

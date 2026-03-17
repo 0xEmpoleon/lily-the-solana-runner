@@ -1,9 +1,19 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { TRAIN_COLORS, BARRIER_COLORS, SPIKE_ROLLER_COLORS } from '../../../assets';
 
 const LANE_WIDTH = 2.5;
+
+// Shared spike geometry + material — created once, reused by every SpikeRoller instance
+const spikeConeGeo = new THREE.ConeGeometry(0.1, 0.5, 6);
+const spikeConeMat = new THREE.MeshStandardMaterial({
+  color: SPIKE_ROLLER_COLORS.spike,
+  emissive: SPIKE_ROLLER_COLORS.spikeEmissive,
+  emissiveIntensity: 0.4,
+  metalness: 0.7,
+  roughness: 0.2,
+});
 
 interface TrainProps {
   lane: number;
@@ -80,14 +90,32 @@ export const HighBarrier: React.FC<{ lane: number; z: number }> = ({ lane, z }) 
 
 const SPIKE_COUNT = 12;
 
-// SpikeRoller – a rolling cylinder covered in spikes, must jump over
+// SpikeRoller – a rolling cylinder covered in spikes, must jump over.
+// All 12 spikes rendered as a single InstancedMesh (1 draw call).
 export const SpikeRoller: React.FC<{ lane: number; z: number }> = ({ lane, z }) => {
-  const groupRef = useRef<THREE.Group>(null);
+  const groupRef        = useRef<THREE.Group>(null);
+  const instancedRef    = useRef<THREE.InstancedMesh>(null);
+
+  // Pre-compute the per-spike transform matrices once
+  const spikeMatrices = useMemo(() => {
+    const dummy = new THREE.Object3D();
+    return Array.from({ length: SPIKE_COUNT }, (_, i) => {
+      const angle = (i / SPIKE_COUNT) * Math.PI * 2;
+      dummy.position.set(Math.cos(angle) * 0.5, Math.sin(angle) * 0.5, 0);
+      dummy.rotation.set(0, 0, angle);
+      dummy.updateMatrix();
+      return dummy.matrix.clone();
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!instancedRef.current) return;
+    spikeMatrices.forEach((m, i) => instancedRef.current!.setMatrixAt(i, m));
+    instancedRef.current.instanceMatrix.needsUpdate = true;
+  }, [spikeMatrices]);
 
   useFrame((state) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.x = state.clock.elapsedTime * 4;
-    }
+    if (groupRef.current) groupRef.current.rotation.x = state.clock.elapsedTime * 4;
   });
 
   return (
@@ -98,23 +126,8 @@ export const SpikeRoller: React.FC<{ lane: number; z: number }> = ({ lane, z }) 
           <cylinderGeometry args={[0.5, 0.5, 2.2, 16]} />
           <meshStandardMaterial color={SPIKE_ROLLER_COLORS.roller} metalness={0.9} roughness={0.1} />
         </mesh>
-        {/* Spikes arranged around the cylinder */}
-        {Array.from({ length: SPIKE_COUNT }).map((_, i) => {
-          const angle = (i / SPIKE_COUNT) * Math.PI * 2;
-          const sx = Math.cos(angle) * 0.5;
-          const sy = Math.sin(angle) * 0.5;
-          return (
-            <mesh
-              key={i}
-              position={[sx * 1.0, sy * 1.0, 0]}
-              rotation={[0, 0, angle]}
-              castShadow
-            >
-              <coneGeometry args={[0.1, 0.5, 6]} />
-              <meshStandardMaterial color={SPIKE_ROLLER_COLORS.spike} emissive={SPIKE_ROLLER_COLORS.spikeEmissive} emissiveIntensity={0.4} metalness={0.7} roughness={0.2} />
-            </mesh>
-          );
-        })}
+        {/* All 12 spikes in one draw call */}
+        <instancedMesh ref={instancedRef} args={[spikeConeGeo, spikeConeMat, SPIKE_COUNT]} castShadow />
       </group>
       {/* End caps */}
       {[-1.1, 1.1].map((x) => (

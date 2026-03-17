@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGameState } from '../store/useGameState';
@@ -11,8 +11,7 @@ interface PowerupItem {
   id: number;
   type: NonNullable<PowerupType>;
   lane: number;
-  z: number;
-  collected: boolean;
+  z: number;   // spawn z — actual live position is in powerupZsRef
 }
 
 interface PowerupManagerProps {
@@ -20,22 +19,25 @@ interface PowerupManagerProps {
 }
 
 const POWERUP_CONFIG: Record<NonNullable<PowerupType>, { color: string; emissive: string; duration: number; label: string }> = {
-  shield:     { ...POWERUP_PALETTE.shield,     duration: 8,  label: '🛡 SHIELD' },
-  magnet:     { ...POWERUP_PALETTE.magnet,     duration: 10, label: '🧲 MAGNET' },
-  invincible: { ...POWERUP_PALETTE.invincible, duration: 6,  label: '⚡ INVINCIBLE' },
-  slowmo:     { ...POWERUP_PALETTE.slowmo,     duration: 5,  label: '⏱ SLOW-MO' },
+  shield:     { ...POWERUP_PALETTE.shield,     label: '🛡 SHIELD' },
+  magnet:     { ...POWERUP_PALETTE.magnet,     label: '🧲 MAGNET' },
+  invincible: { ...POWERUP_PALETTE.invincible, label: '⚡ INVINCIBLE' },
+  slowmo:     { ...POWERUP_PALETTE.slowmo,     label: '⏱ SLOW-MO' },
 };
 
 const POWERUP_TYPES: NonNullable<PowerupType>[] = ['shield', 'magnet', 'invincible', 'slowmo'];
 
-const PowerupOrb = ({ item }: { item: PowerupItem; onCollect: () => void }) => {
+// ── PowerupOrb ─────────────────────────────────────────────────────────────
+const PowerupOrb = ({ item, zRef }: { item: PowerupItem; zRef: React.MutableRefObject<number> }) => {
   const groupRef = useRef<THREE.Group>(null);
   const ringRef  = useRef<THREE.Mesh>(null);
-  const cfg = POWERUP_CONFIG[item.type];
+  const cfg      = POWERUP_CONFIG[item.type];
 
   useFrame((state) => {
     if (!groupRef.current) return;
     const t = state.clock.elapsedTime;
+    // Update z position directly from shared ref (no React state)
+    groupRef.current.position.z = zRef.current;
     groupRef.current.position.y = 1.8 + Math.sin(t * 2) * 0.2;
     groupRef.current.rotation.y = t * 1.5;
     if (ringRef.current) ringRef.current.rotation.x = t * 2;
@@ -63,11 +65,29 @@ const PowerupOrb = ({ item }: { item: PowerupItem; onCollect: () => void }) => {
   );
 };
 
+// ── Manager ────────────────────────────────────────────────────────────────
 export const PowerupManager: React.FC<PowerupManagerProps> = ({ playerPosRef }) => {
   const { speed, speedScale, gameState, activatePowerup, tickPowerup } = useGameState();
   const [powerups, setPowerups] = useState<PowerupItem[]>([]);
-  const nextZ  = useRef(-200);
-  const nextId = useRef(0);
+
+  // Live z-positions stored in a Map — updated every frame via direct mutations,
+  // never via React setState.
+  const powerupZsRef = useRef<Map<number, number>>(new Map());
+
+  const spawnCursorRef = useRef(-200);
+  const nextId         = useRef(0);
+
+  // Sync zRef map when powerup list changes (add initial entries / remove stale ones)
+  useEffect(() => {
+    // Remove entries for powerups no longer in the list
+    for (const id of powerupZsRef.current.keys()) {
+      if (!powerups.find(p => p.id === id)) powerupZsRef.current.delete(id);
+    }
+    // Add entries for newly spawned powerups
+    for (const p of powerups) {
+      if (!powerupZsRef.current.has(p.id)) powerupZsRef.current.set(p.id, p.z);
+    }
+  }, [powerups]);
 
   useFrame((_state, delta) => {
     if (gameState !== 'PLAYING') return;
@@ -75,51 +95,61 @@ export const PowerupManager: React.FC<PowerupManagerProps> = ({ playerPosRef }) 
 
     tickPowerup(delta);
 
-    // ── Advance spawn cursor with world movement ────────────────────────
-    nextZ.current += effectiveSpeed * delta;
-
-    if (nextZ.current > -400) {
+    // Advance spawn cursor
+    spawnCursorRef.current += effectiveSpeed * delta;
+    if (spawnCursorRef.current > -400) {
       const lane = Math.floor(Math.random() * 3) - 1;
       const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
-      setPowerups(prev => [...prev, { id: nextId.current++, type, lane, z: nextZ.current, collected: false }]);
-      nextZ.current -= 300 + Math.random() * 200;
+      const id   = nextId.current++;
+      const z    = spawnCursorRef.current;
+      powerupZsRef.current.set(id, z);
+      setPowerups(prev => [...prev, { id, type, lane, z }]);
+      spawnCursorRef.current -= 300 + Math.random() * 200;
     }
 
-    setPowerups(prev => {
-      const pPos = playerPosRef.current;
-      let pickedType: NonNullable<PowerupType> | null = null;
+    // Move all powerups and detect collections — no setState for position
+    const pPos      = playerPosRef.current;
+    const toRemove: number[] = [];
+    let   pickedType: NonNullable<PowerupType> | null = null;
 
-      const next = prev.map(p => {
-        if (p.collected) return { ...p, z: p.z + effectiveSpeed * delta };
-        const newZ = p.z + effectiveSpeed * delta;
+    for (const [id, z] of powerupZsRef.current) {
+      const newZ = z + effectiveSpeed * delta;
+      powerupZsRef.current.set(id, newZ);
 
-        if (newZ > -1.0 && newZ < 1.0) {
-          const pX   = pPos.x;
-          const obsX = p.lane * 2.5;
-          if (Math.abs(obsX - pX) < 1.2 && Math.abs(pPos.y - 1.8) < 1.5) {
-            pickedType = p.type;
-            return { ...p, z: newZ, collected: true };
-          }
+      const p = powerups.find(pw => pw.id === id);
+      if (!p) continue;
+
+      // Collection check
+      if (newZ > -1.0 && newZ < 1.0) {
+        if (Math.abs(p.lane * 2.5 - pPos.x) < 1.2 && Math.abs(pPos.y - 1.8) < 1.5) {
+          pickedType = p.type;
+          toRemove.push(id);
+          continue;
         }
-        return { ...p, z: newZ };
-      });
-
-      if (pickedType) {
-        const cfg = POWERUP_CONFIG[pickedType as NonNullable<PowerupType>];
-        activatePowerup(pickedType, cfg.duration);
-        soundEngine.powerup();
-        scorePopupEvents.emit({ text: cfg.label, color: cfg.color, big: true });
       }
+      // Cull behind player
+      if (newZ > 20) toRemove.push(id);
+    }
 
-      return next.filter(p => p.z < 20 && !p.collected);
-    });
+    if (pickedType) {
+      const cfg = POWERUP_CONFIG[pickedType];
+      activatePowerup(pickedType, cfg.duration);
+      soundEngine.powerup();
+      scorePopupEvents.emit({ text: cfg.label, color: cfg.color, big: true });
+    }
+
+    if (toRemove.length > 0) {
+      toRemove.forEach(id => powerupZsRef.current.delete(id));
+      setPowerups(prev => prev.filter(p => !toRemove.includes(p.id)));
+    }
   });
 
   return (
     <group>
-      {powerups.filter(p => !p.collected).map(p => (
-        <PowerupOrb key={p.id} item={p} onCollect={() => {}} />
-      ))}
+      {powerups.map(p => {
+        const zRef = { current: powerupZsRef.current.get(p.id) ?? p.z };
+        return <PowerupOrb key={p.id} item={p} zRef={zRef} />;
+      })}
     </group>
   );
 };
