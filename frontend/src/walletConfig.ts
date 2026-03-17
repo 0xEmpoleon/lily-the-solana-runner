@@ -4,9 +4,11 @@ import { createAppKit } from '@reown/appkit/react';
 import { MASCOT_ASSETS } from './assets';
 
 // Get your projectId from https://cloud.reown.com
-export const projectId = import.meta.env.VITE_REOWN_PROJECT_ID as string;
+// Falls back to a placeholder so AppKit always initialises (wallet won't work without a real ID).
+export const projectId: string =
+  (import.meta.env.VITE_REOWN_PROJECT_ID as string | undefined) || '00000000000000000000000000000000';
 
-if (!projectId) {
+if (!import.meta.env.VITE_REOWN_PROJECT_ID) {
   console.warn('[Reown] VITE_REOWN_PROJECT_ID is not set. Wallet connection will not work.');
 }
 
@@ -36,7 +38,7 @@ createAppKit({
   },
   themeMode: 'dark',
   themeVariables: {
-    '--w3m-accent': '#06b6d4',       // cyan-500 to match game palette
+    '--w3m-accent': '#06b6d4',
     '--w3m-border-radius-master': '12px',
   },
 });
