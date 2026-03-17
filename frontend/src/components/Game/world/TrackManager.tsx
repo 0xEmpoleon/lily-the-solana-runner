@@ -10,6 +10,7 @@ import { ForestTrackChunk } from './ForestTrackChunk';
 const CHUNK_LENGTH   = 100;
 const VISIBLE_CHUNKS = 4;
 const LANE_WIDTH     = 2.5;
+const TRACK_W        = LANE_WIDTH * 3 + 2;
 
 // Score thresholds — single source of truth
 function getTheme(score: number): ThemeName {

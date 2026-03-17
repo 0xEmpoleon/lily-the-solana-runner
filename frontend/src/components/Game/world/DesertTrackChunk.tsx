@@ -24,7 +24,7 @@ const DaeModel: React.FC<{
   scale?: number | [number, number, number];
 }> = ({ path, position, rotation = [0, 0, 0], scale = 1 }) => {
   const collada = useLoader(ColladaLoader, path);
-  const clone   = useMemo(() => collada.scene.clone(true), [collada]);
+  const clone   = useMemo(() => collada!.scene.clone(true), [collada]);
 
   const s = Array.isArray(scale) ? scale : [scale, scale, scale];
   return (
