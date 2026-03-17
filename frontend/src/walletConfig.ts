@@ -1,6 +1,6 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { mainnet } from '@reown/appkit/networks';
-import { createAppKit } from '@reown/appkit/react';
+import { createAppKit, type AppKitNetwork } from '@reown/appkit/react';
 
 // Get your projectId from https://cloud.reown.com
 export const projectId = import.meta.env.VITE_REOWN_PROJECT_ID as string;
@@ -16,7 +16,7 @@ const metadata = {
   icons: ['/mascot/RUNNING.png'],
 };
 
-export const networks = [mainnet] as const;
+export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [mainnet];
 
 export const wagmiAdapter = new WagmiAdapter({
   networks,
