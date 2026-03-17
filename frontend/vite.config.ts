@@ -7,10 +7,18 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor':  ['react', 'react-dom'],
-          'three-vendor':  ['three', '@react-three/fiber', '@react-three/drei'],
-          'wallet-vendor': ['@reown/appkit', '@reown/appkit-adapter-wagmi', 'wagmi', 'viem'],
+        manualChunks(id) {
+          // Three.js + R3F ecosystem
+          if (id.includes('three') || id.includes('@react-three')) {
+            return 'three-vendor';
+          }
+          // Wallet / web3 ecosystem
+          if (id.includes('@reown') || id.includes('@walletconnect') ||
+              id.includes('wagmi') || id.includes('viem') ||
+              id.includes('@coinbase/wallet') || id.includes('porto') ||
+              id.includes('@metamask') || id.includes('metamask-sdk')) {
+            return 'wallet-vendor';
+          }
         },
       },
     },
