@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { particleEvents } from '../../../utils/particleEvents';
 import type { BurstEvent } from '../../../utils/particleEvents';
+import { PARTICLE_COLORS } from '../../../assets';
 
 interface Particle {
   pos: THREE.Vector3;
@@ -32,9 +33,9 @@ export const ParticleSystem: React.FC = () => {
   const redRef   = useRef<THREE.InstancedMesh>(null);
 
   const geoRef = useMemo(() => new THREE.SphereGeometry(1, 5, 5), []);
-  const goldMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#FFD700', emissive: '#FFD700', emissiveIntensity: 0.8, roughness: 0.3 }), []);
-  const blueMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#38bdf8', emissive: '#38bdf8', emissiveIntensity: 0.8, roughness: 0.3 }), []);
-  const redMat  = useMemo(() => new THREE.MeshStandardMaterial({ color: '#ff4444', emissive: '#ff4444', emissiveIntensity: 0.8, roughness: 0.3 }), []);
+  const goldMat = useMemo(() => new THREE.MeshStandardMaterial({ color: PARTICLE_COLORS.gold, emissive: PARTICLE_COLORS.gold, emissiveIntensity: 0.8, roughness: 0.3 }), []);
+  const blueMat = useMemo(() => new THREE.MeshStandardMaterial({ color: PARTICLE_COLORS.blue, emissive: PARTICLE_COLORS.blue, emissiveIntensity: 0.8, roughness: 0.3 }), []);
+  const redMat  = useMemo(() => new THREE.MeshStandardMaterial({ color: PARTICLE_COLORS.red,  emissive: PARTICLE_COLORS.red,  emissiveIntensity: 0.8, roughness: 0.3 }), []);
 
   useFrame((_state, delta) => {
     // Spawn pending
@@ -67,8 +68,8 @@ export const ParticleSystem: React.FC = () => {
     const redP:  Particle[] = [];
     for (const p of particles.current) {
       const lo = p.colorHex.toLowerCase();
-      if (lo.includes('38b') || lo.includes('blue') || lo.includes('0ea')) blueP.push(p);
-      else if (lo.includes('ff4') || lo.includes('red') || lo.includes('f44')) redP.push(p);
+      if (lo === PARTICLE_COLORS.blue.toLowerCase() || lo.includes('0ea')) blueP.push(p);
+      else if (lo === PARTICLE_COLORS.red.toLowerCase()) redP.push(p);
       else goldP.push(p);
     }
 

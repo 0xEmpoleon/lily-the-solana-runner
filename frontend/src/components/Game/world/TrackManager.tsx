@@ -1,57 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGameState } from '../store/useGameState';
+import { TRACK_THEMES, type ThemeName } from '../../../assets';
 
 const CHUNK_LENGTH   = 100;
 const VISIBLE_CHUNKS = 4;
 const LANE_WIDTH     = 2.5;
-
-// ── Theme definitions ─────────────────────────────────────────────────────
-type ThemeName = 'mars' | 'desert' | 'forest' | 'space';
-
-const THEMES: Record<ThemeName, {
-  ground: string; wall: string; rail: string;
-  skyColor: string; fogColor: string;
-  decoration: Array<{ color: string; shape: 'box' | 'cone'; scale: [number, number, number]; offsetX: number }>;
-}> = {
-  mars: {
-    ground: '#8B4513', wall: '#A0522D', rail: '#555',
-    skyColor: '#1a0a00', fogColor: '#3d1500',
-    decoration: [
-      { color: '#cc3300', shape: 'cone', scale: [0.3, 1.2, 0.3], offsetX:  9.5 },
-      { color: '#cc3300', shape: 'cone', scale: [0.2, 0.8, 0.2], offsetX: -9.5 },
-    ],
-  },
-  desert: {
-    ground: '#C2955D', wall: '#D4A96A', rail: '#8B6914',
-    skyColor: '#1a1000', fogColor: '#6b3a10',
-    decoration: [
-      { color: '#4a8c3f', shape: 'cone', scale: [0.35, 2.0, 0.35], offsetX:  9.5 },
-      { color: '#4a8c3f', shape: 'cone', scale: [0.25, 1.4, 0.25], offsetX: -9.5 },
-      { color: '#c2955d', shape: 'box',  scale: [0.6, 0.6, 0.6],   offsetX:  10.5 },
-    ],
-  },
-  forest: {
-    ground: '#2d5a1b', wall: '#3d2b1a', rail: '#4a3728',
-    skyColor: '#001200', fogColor: '#0a2200',
-    decoration: [
-      { color: '#2d6e1b', shape: 'cone', scale: [0.6, 3.0, 0.6],   offsetX:  9.5 },
-      { color: '#1f5c12', shape: 'cone', scale: [0.45, 2.2, 0.45], offsetX: -9.5 },
-      { color: '#3d2b1a', shape: 'box',  scale: [0.4, 2.5, 0.4],   offsetX:  10.5 },
-      { color: '#3d2b1a', shape: 'box',  scale: [0.4, 2.5, 0.4],   offsetX: -10.5 },
-    ],
-  },
-  space: {
-    ground: '#1a1a2e', wall: '#16213e', rail: '#0f3460',
-    skyColor: '#000010', fogColor: '#000020',
-    decoration: [
-      { color: '#e94560', shape: 'cone', scale: [0.2, 1.5, 0.2], offsetX:  9.5 },
-      { color: '#0f3460', shape: 'box',  scale: [0.5, 1.8, 0.5], offsetX: -9.5 },
-      { color: '#533483', shape: 'box',  scale: [0.3, 2.2, 0.3], offsetX:  10.5 },
-      { color: '#e94560', shape: 'cone', scale: [0.15, 1.0, 0.15], offsetX: -10.5 },
-    ],
-  },
-};
 
 function getTheme(score: number): ThemeName {
   if (score >= 2500) return 'space';
@@ -67,7 +21,7 @@ interface ChunkProps {
 }
 
 const TrackChunk: React.FC<ChunkProps> = ({ positionZ, theme }) => {
-  const t = THEMES[theme];
+  const t = TRACK_THEMES[theme];
   const trackWidth = LANE_WIDTH * 3 + 2;
 
   return (

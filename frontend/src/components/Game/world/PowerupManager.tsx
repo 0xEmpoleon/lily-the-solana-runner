@@ -5,6 +5,7 @@ import { useGameState } from '../store/useGameState';
 import type { PowerupType } from '../store/useGameState';
 import { soundEngine } from '../../../utils/sound';
 import { scorePopupEvents } from '../../../utils/scorePopupEvents';
+import { POWERUP_PALETTE } from '../../../assets';
 
 interface PowerupItem {
   id: number;
@@ -19,10 +20,10 @@ interface PowerupManagerProps {
 }
 
 const POWERUP_CONFIG: Record<NonNullable<PowerupType>, { color: string; emissive: string; duration: number; label: string }> = {
-  shield:    { color: '#38bdf8', emissive: '#0ea5e9', duration: 8,  label: '🛡 SHIELD' },
-  magnet:    { color: '#c084fc', emissive: '#a855f7', duration: 10, label: '🧲 MAGNET' },
-  invincible: { color: '#facc15', emissive: '#f59e0b', duration: 6, label: '⚡ INVINCIBLE' },
-  slowmo:    { color: '#4ade80', emissive: '#22c55e', duration: 5,  label: '⏱ SLOW-MO' },
+  shield:     { ...POWERUP_PALETTE.shield,     duration: 8,  label: '🛡 SHIELD' },
+  magnet:     { ...POWERUP_PALETTE.magnet,     duration: 10, label: '🧲 MAGNET' },
+  invincible: { ...POWERUP_PALETTE.invincible, duration: 6,  label: '⚡ INVINCIBLE' },
+  slowmo:     { ...POWERUP_PALETTE.slowmo,     duration: 5,  label: '⏱ SLOW-MO' },
 };
 
 const POWERUP_TYPES: NonNullable<PowerupType>[] = ['shield', 'magnet', 'invincible', 'slowmo'];

@@ -6,6 +6,7 @@ import { soundEngine } from '../../../utils/sound';
 import { haptics } from '../../../utils/haptics';
 import { particleEvents } from '../../../utils/particleEvents';
 import { scorePopupEvents } from '../../../utils/scorePopupEvents';
+import { COLLECTIBLE_COLORS } from '../../../assets';
 
 interface CoinItem {
   id: number;
@@ -20,11 +21,11 @@ interface CollectibleManagerProps {
   playerPosRef: React.MutableRefObject<THREE.Vector3>;
 }
 
-// Shared geometries
+// Shared geometries — created once at module scope to avoid per-render allocation
 const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
-const coinMat = new THREE.MeshStandardMaterial({ color: '#FFD700', metalness: 0.8, roughness: 0.2 });
+const coinMat = new THREE.MeshStandardMaterial({ color: COLLECTIBLE_COLORS.coin, metalness: 0.8, roughness: 0.2 });
 const starMat = new THREE.MeshStandardMaterial({
-  color: '#fde047', emissive: '#f59e0b', emissiveIntensity: 0.8,
+  color: COLLECTIBLE_COLORS.star, emissive: COLLECTIBLE_COLORS.starEmissive, emissiveIntensity: 0.8,
   metalness: 0.5, roughness: 0.2,
 });
 
@@ -63,7 +64,7 @@ const StarMesh = ({ c }: { c: CoinItem }) => {
   return (
     <group ref={ref} position={[c.lane * 2.5, c.y, c.z]}>
       <mesh geometry={starGeo} material={starMat} castShadow position={[-0.5, -0.5, 0]} />
-      <pointLight color="#fde047" intensity={5} distance={3} decay={2} />
+      <pointLight color={COLLECTIBLE_COLORS.star} intensity={5} distance={3} decay={2} />
     </group>
   );
 };
@@ -204,13 +205,13 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
       if (totalPicked > 0) {
         if (pickedStars > 0) {
           soundEngine.star();
-          scorePopupEvents.emit({ text: `⭐ +${50 * pickedMultiplier}`, color: '#fde047' });
+          scorePopupEvents.emit({ text: `⭐ +${50 * pickedMultiplier}`, color: COLLECTIBLE_COLORS.star });
         } else {
           soundEngine.coin();
           if (pickedCoins > 1) {
-            scorePopupEvents.emit({ text: `+${10 * pickedCoins * pickedMultiplier}`, color: '#FFD700' });
+            scorePopupEvents.emit({ text: `+${10 * pickedCoins * pickedMultiplier}`, color: COLLECTIBLE_COLORS.coin });
           } else {
-            scorePopupEvents.emit({ text: `+${10 * pickedMultiplier}`, color: '#FFD700' });
+            scorePopupEvents.emit({ text: `+${10 * pickedMultiplier}`, color: COLLECTIBLE_COLORS.coin });
           }
         }
         haptics.coin();
@@ -218,7 +219,7 @@ export const CollectibleManager: React.FC<CollectibleManagerProps> = ({ playerPo
         positions.forEach(p => {
           particleEvents.emit({
             x: p.x, y: p.y, z: p.z,
-            color: p.star ? '#fde047' : '#FFD700',
+            color: p.star ? COLLECTIBLE_COLORS.star : COLLECTIBLE_COLORS.coin,
             count: p.star ? 12 : 5,
           });
         });

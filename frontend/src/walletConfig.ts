@@ -1,6 +1,7 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { mainnet, type AppKitNetwork } from '@reown/appkit/networks';
 import { createAppKit } from '@reown/appkit/react';
+import { MASCOT_ASSETS } from './assets';
 
 // Get your projectId from https://cloud.reown.com
 export const projectId = import.meta.env.VITE_REOWN_PROJECT_ID as string;
@@ -13,7 +14,7 @@ const metadata = {
   name: 'Mars Subway Runner',
   description: 'An epic 3D Mars-themed endless runner',
   url: typeof window !== 'undefined' ? window.location.origin : 'https://mars-subway-runner.vercel.app',
-  icons: ['/mascot/RUNNING.png'],
+  icons: [MASCOT_ASSETS.RUNNING],
 };
 
 export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [mainnet];

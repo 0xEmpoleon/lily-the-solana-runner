@@ -16,17 +16,7 @@ import { Leaderboard, submitScore } from './Leaderboard';
 import { soundEngine } from '../../utils/sound';
 import { scorePopupEvents } from '../../utils/scorePopupEvents';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
-
-// ── Asset paths ──────────────────────────────────────────────────────────────
-const MASCOT = {
-  playing:    '/mascot/PLAYING JOY.png',
-  running:    '/mascot/RUNNING.png',
-  jump:       '/mascot/JUMP.png',
-  betterLuck: '/mascot/Better luck.png',
-  reward:     '/mascot/NFTHAPPY reward.png',
-  thumbsUp:   '/mascot/4 thumbs up.png',
-  hodl:       '/mascot/HODL.png',
-};
+import { MASCOT_ASSETS as MASCOT } from '../../assets';
 
 type ActivePowerup = NonNullable<PowerupType>;
 
@@ -350,7 +340,7 @@ const GameScene: React.FC = () => {
               {muted ? '🔇' : '🔊'}
             </button>
 
-            <img src={MASCOT.playing} alt="JOY" className="w-28 h-28 object-contain drop-shadow-[0_0_20px_rgba(34,211,238,0.5)]" />
+            <img src={MASCOT.PLAYING} alt="JOY" className="w-28 h-28 object-contain drop-shadow-[0_0_20px_rgba(34,211,238,0.5)]" />
             <div className="text-center -mt-2">
               <h1 className="text-5xl font-black text-white leading-tight">MARS</h1>
               <h1 className="text-4xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent italic">SURFERS</h1>
@@ -405,7 +395,7 @@ const GameScene: React.FC = () => {
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-950/92 pointer-events-auto backdrop-blur-md px-4 gap-3 overflow-y-auto py-6">
 
             <img
-              src={isNewHighScore ? MASCOT.reward : MASCOT.betterLuck}
+              src={isNewHighScore ? MASCOT.REWARD : MASCOT.BETTER_LUCK}
               alt="JOY"
               className="w-24 h-24 object-contain drop-shadow-[0_0_15px_rgba(255,100,100,0.6)]"
             />

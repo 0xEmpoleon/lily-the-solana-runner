@@ -1,22 +1,11 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { BEAR_COLORS as C } from '../../../assets';
 
 interface BearCharacterProps {
   playerState: 'RUN' | 'JUMP' | 'ROLL' | 'STUMBLE';
 }
-
-// Cute warm color palette — soft teal suit, warm fur, pastel accents
-const C = {
-  fur:    '#C68642',   // warm honey brown
-  belly:  '#F5E6C8',   // cream
-  nose:   '#4A2C1A',   // dark brown
-  ear:    '#A0622A',   // darker ear inner
-  suit:   '#1B998B',   // teal
-  accent: '#FFD60A',   // bright yellow
-  blush:  '#FFB3C6',   // pastel pink
-  paw:    '#D4956A',   // light fur paw
-};
 
 const BearCharacter: React.FC<BearCharacterProps> = ({ playerState }) => {
   const groupRef    = useRef<THREE.Group>(null);
@@ -98,11 +87,11 @@ const BearCharacter: React.FC<BearCharacterProps> = ({ playerState }) => {
         {/* BIG eyes */}
         <mesh position={[-0.20, 1.60, 0.40]}>
           <sphereGeometry args={[0.09, 14, 14]} />
-          <meshBasicMaterial color="#0d0d1a" />
+          <meshBasicMaterial color={C.eye} />
         </mesh>
         <mesh position={[0.20, 1.60, 0.40]}>
           <sphereGeometry args={[0.09, 14, 14]} />
-          <meshBasicMaterial color="#0d0d1a" />
+          <meshBasicMaterial color={C.eye} />
         </mesh>
         {/* Eye shines */}
         <mesh position={[-0.15, 1.65, 0.48]}>

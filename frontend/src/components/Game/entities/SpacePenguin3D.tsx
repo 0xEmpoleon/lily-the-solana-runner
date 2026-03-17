@@ -1,22 +1,11 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { PENGUIN_COLORS as C } from '../../../assets';
 
 interface SpacePenguinProps {
   playerState: 'RUN' | 'JUMP' | 'ROLL' | 'STUMBLE';
 }
-
-// Cute color palette — sky-blue suit, coral accent, big dark head
-const C = {
-  suit:    '#87CEEB',  // sky blue
-  accent:  '#FF80AB',  // hot pink
-  helmet:  '#C8F0FF',  // pale cyan glass
-  head:    '#1a2035',  // deep navy
-  belly:   '#FFFDF0',  // warm white
-  beak:    '#FF8C1A',  // orange
-  blush:   '#FFB3C6',  // pastel pink
-  jetpack: '#00CFFF',  // bright cyan
-};
 
 const SpacePenguin3D: React.FC<SpacePenguinProps> = ({ playerState }) => {
   const groupRef    = useRef<THREE.Group>(null);
@@ -93,11 +82,11 @@ const SpacePenguin3D: React.FC<SpacePenguinProps> = ({ playerState }) => {
         {/* BIG eyes */}
         <mesh position={[-0.18, 1.54, 0.40]}>
           <sphereGeometry args={[0.09, 14, 14]} />
-          <meshBasicMaterial color="#0d0d1a" />
+          <meshBasicMaterial color={C.eye} />
         </mesh>
         <mesh position={[0.18, 1.54, 0.40]}>
           <sphereGeometry args={[0.09, 14, 14]} />
-          <meshBasicMaterial color="#0d0d1a" />
+          <meshBasicMaterial color={C.eye} />
         </mesh>
         {/* Eye shine */}
         <mesh position={[-0.13, 1.59, 0.48]}>

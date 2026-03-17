@@ -6,6 +6,7 @@ import BearCharacter from './entities/BearCharacter';
 import { useGameState } from './store/useGameState';
 import { soundEngine } from '../../utils/sound';
 import { haptics } from '../../utils/haptics';
+import { EFFECT_COLORS } from '../../assets';
 
 interface PlayerProps {
   positionRef: React.MutableRefObject<THREE.Vector3>;
@@ -145,14 +146,14 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
       {hasShield && (
         <mesh>
           <torusGeometry args={[1.0, 0.08, 8, 32]} />
-          <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={3} transparent opacity={0.7} />
+          <meshStandardMaterial color={EFFECT_COLORS.shield.ring} emissive={EFFECT_COLORS.shield.ring} emissiveIntensity={3} transparent opacity={0.7} />
         </mesh>
       )}
       {/* Invincible aura */}
       {isInvincible && (
         <mesh>
           <sphereGeometry args={[1.2, 12, 12]} />
-          <meshStandardMaterial color="#facc15" emissive="#f59e0b" emissiveIntensity={1.5} transparent opacity={0.15} />
+          <meshStandardMaterial color={EFFECT_COLORS.invincible.aura} emissive={EFFECT_COLORS.invincible.auraEmissive} emissiveIntensity={1.5} transparent opacity={0.15} />
         </mesh>
       )}
       {/* Slow-mo trail rings */}
@@ -160,11 +161,11 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
         <>
           <mesh rotation={[0, 0, 0]}>
             <torusGeometry args={[0.9, 0.04, 8, 32]} />
-            <meshStandardMaterial color="#4ade80" emissive="#4ade80" emissiveIntensity={3} transparent opacity={0.6} />
+            <meshStandardMaterial color={EFFECT_COLORS.slowmo.ring} emissive={EFFECT_COLORS.slowmo.ring} emissiveIntensity={3} transparent opacity={0.6} />
           </mesh>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <torusGeometry args={[0.9, 0.04, 8, 32]} />
-            <meshStandardMaterial color="#4ade80" emissive="#4ade80" emissiveIntensity={2} transparent opacity={0.4} />
+            <meshStandardMaterial color={EFFECT_COLORS.slowmo.ring} emissive={EFFECT_COLORS.slowmo.ring} emissiveIntensity={2} transparent opacity={0.4} />
           </mesh>
         </>
       )}
