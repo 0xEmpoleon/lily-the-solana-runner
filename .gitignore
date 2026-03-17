@@ -15,7 +15,6 @@ tmp
 # Docker Volumes
 mongodb_data
 
-# 3D model assets (large binary files)
+# 3D model assets — DAE source files only (GLTF runtime files in public/models are tracked)
 *.dae
-frontend/public/models/
 .vercel
