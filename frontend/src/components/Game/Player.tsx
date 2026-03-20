@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import SpacePenguin3D from './entities/SpacePenguin3D';
 import BearCharacter from './entities/BearCharacter';
+import MouseCharacter from './entities/MouseCharacter';
 import { useGameState } from './store/useGameState';
 import { soundEngine } from '../../utils/sound';
 import { haptics } from '../../utils/haptics';
@@ -167,7 +168,9 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
           </mesh>
         </>
       )}
-      {character === 'bear' ? (
+      {character === 'mouse' ? (
+        <MouseCharacter playerState={playerState} />
+      ) : character === 'bear' ? (
         <BearCharacter playerState={playerState} />
       ) : (
         <SpacePenguin3D playerState={playerState} />

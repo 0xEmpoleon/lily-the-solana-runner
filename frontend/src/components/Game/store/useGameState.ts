@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export type PowerupType = 'shield' | 'magnet' | 'invincible' | 'slowmo' | null;
-export type CharacterType = 'penguin' | 'bear';
+export type CharacterType = 'penguin' | 'bear' | 'mouse';
 export type ChallengeType = 'coins' | 'score' | 'combo';
 
 export interface DailyChallenge {
@@ -20,15 +20,15 @@ const ls = {
 };
 
 const loadHighScore = (): number =>
-  parseInt(ls.get('mars_highscore') || '0', 10);
+  parseInt(ls.get('lily_highscore') || '0', 10);
 
-const saveHighScore = (s: number) => ls.set('mars_highscore', String(s));
+const saveHighScore = (s: number) => ls.set('lily_highscore', String(s));
 
 const loadCharacter = (): CharacterType =>
-  (ls.get('mars_character') as CharacterType) || 'penguin';
+  (ls.get('lily_character') as CharacterType) || 'mouse';
 
 const loadHistory = (): number[] => {
-  try { return JSON.parse(ls.get('mars_history') || '[]'); } catch { return []; }
+  try { return JSON.parse(ls.get('lily_history') || '[]'); } catch { return []; }
 };
 
 // ── Daily challenge generation (deterministic from date) ───────────────────
@@ -49,7 +49,7 @@ const buildDailyChallenge = (): DailyChallenge => {
     combo: `Get a ${target}x coin combo`,
   };
 
-  const saved = ls.get('mars_daily');
+  const saved = ls.get('lily_daily');
   if (saved) {
     try {
       const parsed = JSON.parse(saved) as DailyChallenge;
@@ -160,7 +160,7 @@ export const useGameState = create<GameState>((set, get) => ({
     const newHigh = Math.max(finalScore, highScore);
     if (newHigh > highScore) saveHighScore(newHigh);
     const newHistory = [finalScore, ...runHistory].slice(0, 5);
-    ls.set('mars_history', JSON.stringify(newHistory));
+    ls.set('lily_history', JSON.stringify(newHistory));
     set(s => ({
       gameState: 'GAMEOVER', highScore: newHigh, activePowerup: null, speedScale: 1.0, runHistory: newHistory,
       runStats: { ...s.runStats, maxCombo: s.maxCombo },
@@ -187,7 +187,7 @@ export const useGameState = create<GameState>((set, get) => ({
 
   // ── Character ──────────────────────────────────────────────────────────
   setCharacter: (c) => {
-    ls.set('mars_character', c);
+    ls.set('lily_character', c);
     set({ character: c });
   },
 
@@ -229,7 +229,7 @@ export const useGameState = create<GameState>((set, get) => ({
     const progress = Math.min(dc.progress + amount, dc.target);
     const completed = progress >= dc.target;
     const updated = { ...dc, progress, completed };
-    ls.set('mars_daily', JSON.stringify(updated));
+    ls.set('lily_daily', JSON.stringify(updated));
     return { dailyChallenge: updated };
   }),
 

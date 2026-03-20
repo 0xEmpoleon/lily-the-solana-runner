@@ -83,6 +83,21 @@ export const BEAR_COLORS = {
   eye:    '#0d0d1a',  // near-black
 } as const;
 
+// ── Character: Mouse (Lily) ──────────────────────────────────────────────────
+export const MOUSE_COLORS = {
+  fur:      '#D4C4B0',  // light grey-beige
+  belly:    '#F5EDE3',  // cream white
+  nose:     '#FFB6C1',  // pink
+  innerEar: '#FFB6C1',  // pink inner ear
+  whisker:  '#CCCCCC',  // light grey
+  suit:     '#14F195',  // Solana green
+  accent:   '#9945FF',  // Solana purple
+  blush:    '#FFB3C6',  // pastel pink
+  paw:      '#E8D5C4',  // light fur paw
+  tail:     '#C4B0A0',  // warm grey
+  eye:      '#0d0d1a',  // near-black
+} as const;
+
 // ── Obstacles ─────────────────────────────────────────────────────────────────
 export const TRAIN_COLORS = {
   body:            '#ff4000',
