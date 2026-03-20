@@ -8,7 +8,7 @@ interface AsciiImage { c: number; r: number; d: CellData[] }
 const CELL_W = 11;
 const CELL_H = 14;
 const CANVAS_W = 81 * CELL_W;       // 891
-const IMAGES_PER_SIDE = 6;
+const IMAGES_PER_SIDE = 3;
 
 function shuffle<T>(arr: T[]): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
