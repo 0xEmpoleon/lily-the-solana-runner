@@ -24,8 +24,6 @@ export const MASCOT_ASSETS = {
 // Leave as '' to use the built-in procedural geometry.
 // Set to '/models/name.glb' once final GLB files are placed in public/models/.
 export const MODEL_ASSETS = {
-  PENGUIN:      '',   // e.g. '/models/penguin.glb'
-  BEAR:         '',   // e.g. '/models/bear.glb'
   TRAIN:        '',   // e.g. '/models/train.glb'
   LOW_BARRIER:  '',   // e.g. '/models/low-barrier.glb'
   HIGH_BARRIER: '',   // e.g. '/models/high-barrier.glb'
@@ -55,32 +53,6 @@ export const CITY_MODELS = {
   BOX_B:         `${C}/box_B.gltf`,
   CAR_TAXI:      `${C}/car_taxi.gltf`,
   CAR_SEDAN:     `${C}/car_sedan.gltf`,
-} as const;
-
-// ── Character: Space Penguin ──────────────────────────────────────────────────
-export const PENGUIN_COLORS = {
-  suit:    '#87CEEB',  // sky blue
-  accent:  '#FF80AB',  // hot pink
-  helmet:  '#C8F0FF',  // pale cyan glass
-  head:    '#1a2035',  // deep navy
-  belly:   '#FFFDF0',  // warm white
-  beak:    '#FF8C1A',  // orange
-  blush:   '#FFB3C6',  // pastel pink
-  jetpack: '#00CFFF',  // bright cyan
-  eye:     '#0d0d1a',  // near-black
-} as const;
-
-// ── Character: Bear ───────────────────────────────────────────────────────────
-export const BEAR_COLORS = {
-  fur:    '#C68642',  // warm honey brown
-  belly:  '#F5E6C8',  // cream
-  nose:   '#4A2C1A',  // dark brown
-  ear:    '#A0622A',  // inner ear
-  suit:   '#1B998B',  // teal
-  accent: '#FFD60A',  // bright yellow
-  blush:  '#FFB3C6',  // pastel pink
-  paw:    '#D4956A',  // light fur paw
-  eye:    '#0d0d1a',  // near-black
 } as const;
 
 // ── Character: Mouse (Lily) ──────────────────────────────────────────────────

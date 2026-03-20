@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 
 export type PowerupType = 'shield' | 'magnet' | 'invincible' | 'slowmo' | null;
-export type CharacterType = 'penguin' | 'bear' | 'mouse';
 export type ChallengeType = 'coins' | 'score' | 'combo';
 
 export interface DailyChallenge {
@@ -23,9 +22,6 @@ const loadHighScore = (): number =>
   parseInt(ls.get('lily_highscore') || '0', 10);
 
 const saveHighScore = (s: number) => ls.set('lily_highscore', String(s));
-
-const loadCharacter = (): CharacterType =>
-  (ls.get('lily_character') as CharacterType) || 'mouse';
 
 const loadHistory = (): number[] => {
   try { return JSON.parse(ls.get('lily_history') || '[]'); } catch { return []; }
@@ -89,7 +85,6 @@ interface GameState {
   speedScale: number;      // 1.0 normally, 0.4 during slowmo
   highScore: number;
 
-  character: CharacterType;
   activePowerup: PowerupType;
   powerupTimeLeft: number;
 
@@ -110,7 +105,6 @@ interface GameState {
   addScore: (points: number) => void;
   addCoin: () => void;
   increaseSpeed: (delta: number) => void;
-  setCharacter: (c: CharacterType) => void;
   activatePowerup: (type: PowerupType, duration: number) => void;
   tickPowerup: (delta: number) => void;
   incrementCombo: () => void;
@@ -130,7 +124,6 @@ export const useGameState = create<GameState>((set, get) => ({
   speedScale: 1.0,
   highScore: loadHighScore(),
 
-  character: loadCharacter(),
   activePowerup: null,
   powerupTimeLeft: 0,
 
@@ -184,12 +177,6 @@ export const useGameState = create<GameState>((set, get) => ({
   })),
 
   increaseSpeed: (delta) => set(s => ({ speed: Math.min(s.speed + delta, 120) })),
-
-  // ── Character ──────────────────────────────────────────────────────────
-  setCharacter: (c) => {
-    ls.set('lily_character', c);
-    set({ character: c });
-  },
 
   // ── Power-ups ─────────────────────────────────────────────────────────
   activatePowerup: (type, duration) => set(s => ({

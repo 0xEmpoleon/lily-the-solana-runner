@@ -50,7 +50,6 @@ const GameScene: React.FC = () => {
     startGame, endGame,
     activePowerup, powerupTimeLeft,
     combo, multiplier,
-    character, setCharacter,
     dailyChallenge, updateChallenge,
     milestoneScore, clearMilestone,
     runHistory, runStats,
@@ -198,7 +197,7 @@ const GameScene: React.FC = () => {
 
         {gameState === 'MENU' && (
           <GameMenu
-            highScore={highScore} character={character} setCharacter={setCharacter}
+            highScore={highScore}
             dailyChallenge={dailyChallenge}
             muted={muted} onToggleMute={toggleMute}
             onStart={handleStart}

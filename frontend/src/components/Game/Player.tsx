@@ -1,8 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import SpacePenguin3D from './entities/SpacePenguin3D';
-import BearCharacter from './entities/BearCharacter';
 import MouseCharacter from './entities/MouseCharacter';
 import { useGameState } from './store/useGameState';
 import { soundEngine } from '../../utils/sound';
@@ -22,7 +20,7 @@ const ROLL_DURATION = 0.8;
 
 const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const { gameState, activePowerup, character } = useGameState();
+  const { gameState, activePowerup } = useGameState();
 
   const [lane, setLane]               = useState(0);
   const [playerState, setPlayerState] = useState<'RUN' | 'JUMP' | 'ROLL' | 'STUMBLE'>('RUN');
@@ -168,13 +166,7 @@ const Player: React.FC<PlayerProps> = ({ positionRef, hitboxRef }) => {
           </mesh>
         </>
       )}
-      {character === 'mouse' ? (
-        <MouseCharacter playerState={playerState} />
-      ) : character === 'bear' ? (
-        <BearCharacter playerState={playerState} />
-      ) : (
-        <SpacePenguin3D playerState={playerState} />
-      )}
+      <MouseCharacter playerState={playerState} />
     </group>
   );
 };

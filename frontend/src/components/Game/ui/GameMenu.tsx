@@ -1,25 +1,5 @@
 import React from 'react';
-import type { CharacterType, DailyChallenge } from '../store/useGameState';
-
-
-// ── CharacterCard ─────────────────────────────────────────────────────────────
-const CharacterCard = ({
-  label, emoji, desc, selected, onSelect,
-}: { label: string; emoji: string; desc: string; selected: boolean; onSelect: () => void }) => (
-  <button
-    onClick={onSelect}
-    className={`flex-1 rounded-2xl p-3 border-2 transition-all text-center ${
-      selected
-        ? 'border-[#14F195] bg-[#14F195]/10 scale-105 shadow-[0_0_20px_rgba(20,241,149,0.3)]'
-        : 'border-slate-700 bg-slate-900/60 hover:border-[#9945FF]/50'
-    }`}
-  >
-    <div className="text-4xl mb-1">{emoji}</div>
-    <p className="text-[#14F195] font-black text-sm" style={{ fontFamily: 'Orbitron, sans-serif' }}>{label}</p>
-    <p className="text-slate-400 text-[10px] mt-0.5">{desc}</p>
-    {selected && <p className="text-[#14F195] text-[10px] font-bold mt-1" style={{ fontFamily: 'Orbitron, sans-serif' }}>SELECTED ✓</p>}
-  </button>
-);
+import type { DailyChallenge } from '../store/useGameState';
 
 // ── ChallengeBadge ────────────────────────────────────────────────────────────
 const ChallengeBadge = ({ dc }: { dc: DailyChallenge }) => {
@@ -49,8 +29,6 @@ const ChallengeBadge = ({ dc }: { dc: DailyChallenge }) => {
 // ── GameMenu ──────────────────────────────────────────────────────────────────
 interface GameMenuProps {
   highScore:          number;
-  character:          CharacterType;
-  setCharacter:       (c: CharacterType) => void;
   dailyChallenge:     DailyChallenge;
   muted:              boolean;
   onToggleMute:       () => void;
@@ -63,7 +41,7 @@ interface GameMenuProps {
 }
 
 export const GameMenu: React.FC<GameMenuProps> = ({
-  highScore, character, setCharacter, dailyChallenge,
+  highScore, dailyChallenge,
   muted, onToggleMute, onStart, onShowLeaderboard,
   isConnected, connectedAddress, onOpenWallet,
 }) => (
@@ -84,18 +62,6 @@ export const GameMenu: React.FC<GameMenuProps> = ({
         <span className="text-[#14F195] font-bold text-sm" style={{ fontFamily: 'Orbitron, sans-serif' }}>BEST: {highScore}</span>
       </div>
     )}
-
-    <div className="w-full max-w-[340px] flex flex-col gap-2">
-      <p className="text-[#14F195]/50 text-xs font-bold uppercase tracking-wider text-center" style={{ fontFamily: 'Orbitron, sans-serif' }}>Choose Your Runner</p>
-      <div className="flex gap-2">
-        <CharacterCard label="Lily" emoji="🐭" desc="Solana speedster"
-          selected={character === 'mouse'} onSelect={() => setCharacter('mouse')} />
-        <CharacterCard label="Penguin" emoji="🐧" desc="Space explorer"
-          selected={character === 'penguin'} onSelect={() => setCharacter('penguin')} />
-        <CharacterCard label="Bear" emoji="🐻" desc="Tough adventurer"
-          selected={character === 'bear'} onSelect={() => setCharacter('bear')} />
-      </div>
-    </div>
 
     <ChallengeBadge dc={dailyChallenge} />
 
