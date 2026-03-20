@@ -1,8 +1,15 @@
 /** Synthesised sound engine – no audio files needed, uses Web Audio API */
 
+type ZoneName = 'mars' | 'city' | 'desert' | 'forest' | 'space';
+
 class SoundEngine {
   private ctx: AudioContext | null = null;
   private muted = false;
+  private musicPlaying = false;
+  private musicGain: GainNode | null = null;
+  private musicNodes: OscillatorNode[] = [];
+  private musicInterval: ReturnType<typeof setInterval> | null = null;
+  private currentZone: ZoneName = 'mars';
 
   private get audioCtx(): AudioContext {
     if (!this.ctx) this.ctx = new AudioContext();
@@ -10,8 +17,67 @@ class SoundEngine {
     return this.ctx;
   }
 
-  toggle() { this.muted = !this.muted; return this.muted; }
+  toggle() {
+    this.muted = !this.muted;
+    if (this.muted) this.stopMusicNodes();
+    else if (this.musicPlaying) this.startMusic(this.currentZone);
+    return this.muted;
+  }
   isMuted() { return this.muted; }
+
+  startMusic(zone: ZoneName) {
+    this.currentZone = zone;
+    this.musicPlaying = true;
+    if (this.muted) return;
+    this.stopMusicNodes();
+    try {
+      const ctx = this.audioCtx;
+      const mg = ctx.createGain();
+      mg.gain.setValueAtTime(0.06, ctx.currentTime);
+      mg.connect(ctx.destination);
+      this.musicGain = mg;
+      const cfg: Record<ZoneName, { notes: number[]; tempo: number; wave: OscillatorType }> = {
+        mars:   { notes: [110, 130.81, 146.83, 164.81], tempo: 400, wave: 'triangle' },
+        city:   { notes: [130.81, 164.81, 196, 220],    tempo: 300, wave: 'square' },
+        desert: { notes: [146.83, 174.61, 196, 233.08], tempo: 350, wave: 'triangle' },
+        forest: { notes: [164.81, 196, 220, 261.63],    tempo: 450, wave: 'sine' },
+        space:  { notes: [82.41, 110, 146.83, 196],     tempo: 500, wave: 'sine' },
+      };
+      const c = cfg[zone];
+      const pad = ctx.createOscillator();
+      const pg = ctx.createGain();
+      pad.type = 'sine'; pad.frequency.setValueAtTime(c.notes[0] / 2, ctx.currentTime);
+      pg.gain.setValueAtTime(0.3, ctx.currentTime);
+      pad.connect(pg); pg.connect(mg); pad.start();
+      this.musicNodes.push(pad);
+      let ni = 0;
+      this.musicInterval = setInterval(() => {
+        if (this.muted || !this.musicPlaying) return;
+        try {
+          const n = c.notes[ni % c.notes.length];
+          const o = ctx.createOscillator(); const g = ctx.createGain();
+          o.type = c.wave; o.frequency.setValueAtTime(n, ctx.currentTime);
+          g.gain.setValueAtTime(0.15, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+          o.connect(g); g.connect(mg); o.start(); o.stop(ctx.currentTime + 0.3);
+          ni++;
+        } catch { /* ignore */ }
+      }, c.tempo);
+    } catch { /* ignore */ }
+  }
+
+  updateMusicZone(zone: ZoneName) {
+    if (zone !== this.currentZone && this.musicPlaying) this.startMusic(zone);
+  }
+
+  stopMusic() { this.stopMusicNodes(); this.musicPlaying = false; }
+
+  private stopMusicNodes() {
+    if (this.musicInterval) { clearInterval(this.musicInterval); this.musicInterval = null; }
+    this.musicNodes.forEach(n => { try { n.stop(); } catch { /* */ } });
+    this.musicNodes = [];
+    if (this.musicGain) { try { this.musicGain.disconnect(); } catch { /* */ } this.musicGain = null; }
+  }
 
   private osc(
     type: OscillatorType,

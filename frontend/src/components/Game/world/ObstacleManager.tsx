@@ -37,7 +37,7 @@ interface ObstacleManagerProps {
 export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
   playerPosRef, playerHitboxRef, onStumble, onCrash,
 }) => {
-  const { speed, speedScale, gameState, score, activePowerup, breakCombo, addScore } = useGameState();
+  const { speed, speedScale, gameState, score, activePowerup, breakCombo, addScore, addNearMiss } = useGameState();
   const [obstacles, setObstacles] = useState<ObstacleData[]>([]);
   const nextZ   = useRef(-100);
   const nextId  = useRef(0);
@@ -67,27 +67,24 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
       if (r < 0.10) return { type: 'FIRE_HYDRANT', width: 1.4, height: 0.8, depth: 0.8 };
       if (r < 0.25) return { type: 'BENCH',        width: 1.8, height: 0.9, depth: 1.2 };
       if (r < 0.50) return { type: 'DUMPSTER',     width: 2.0, height: 1.2, depth: 1.5 };
-      if (r < 0.70) return { type: 'BOX_STACK',    width: 1.8, height: 2.2, depth: 1.5 };
-      if (r < 0.85) return { type: 'PARKED_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
-      if (r < 0.90) return { type: 'MOVING_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
-      if (r < 0.95) return { type: 'TRAFFIC_GATE', width: 2.2, height: 2.5, depth: 0.5 };
+      if (r < 0.70) return { type: 'PARKED_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+      if (r < 0.85) return { type: 'MOVING_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+      if (r < 0.93) return { type: 'TRAFFIC_GATE', width: 2.2, height: 2.5, depth: 0.5 };
                     return { type: 'WATERTOWER',    width: 2.0, height: 3.0, depth: 2.0 };
     }
 
     // Phase 3 — Desert (4000–5999): no easy types, hard types prominent
     if (score < 6000) {
-      if (r < 0.15) return { type: 'DUMPSTER',     width: 2.0, height: 1.2, depth: 1.5 };
-      if (r < 0.35) return { type: 'BOX_STACK',    width: 1.8, height: 2.2, depth: 1.5 };
-      if (r < 0.50) return { type: 'PARKED_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
-      if (r < 0.70) return { type: 'MOVING_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+      if (r < 0.20) return { type: 'DUMPSTER',     width: 2.0, height: 1.2, depth: 1.5 };
+      if (r < 0.40) return { type: 'PARKED_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+      if (r < 0.65) return { type: 'MOVING_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
       if (r < 0.85) return { type: 'TRAFFIC_GATE', width: 2.2, height: 2.5, depth: 0.5 };
                     return { type: 'WATERTOWER',    width: 2.0, height: 3.0, depth: 2.0 };
     }
 
     // Phase 4 — Forest (6000–7999): heavy on lane-switch obstacles
     if (score < 8000) {
-      if (r < 0.10) return { type: 'DUMPSTER',     width: 2.0, height: 1.2, depth: 1.5 };
-      if (r < 0.20) return { type: 'BOX_STACK',    width: 1.8, height: 2.2, depth: 1.5 };
+      if (r < 0.15) return { type: 'DUMPSTER',     width: 2.0, height: 1.2, depth: 1.5 };
       if (r < 0.30) return { type: 'PARKED_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
       if (r < 0.55) return { type: 'MOVING_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
       if (r < 0.80) return { type: 'TRAFFIC_GATE', width: 2.2, height: 2.5, depth: 0.5 };
@@ -95,10 +92,9 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
     }
 
     // Phase 5 — Space (8000+): relentless, no easy types
-    if (r < 0.10) return { type: 'DUMPSTER',     width: 2.0, height: 1.2, depth: 1.5 };
-    if (r < 0.25) return { type: 'BOX_STACK',    width: 1.8, height: 2.2, depth: 1.5 };
-    if (r < 0.50) return { type: 'MOVING_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
-    if (r < 0.75) return { type: 'TRAFFIC_GATE', width: 2.2, height: 2.5, depth: 0.5 };
+    if (r < 0.15) return { type: 'DUMPSTER',     width: 2.0, height: 1.2, depth: 1.5 };
+    if (r < 0.40) return { type: 'MOVING_CAR',   width: 2.2, height: 1.4, depth: 3.0 };
+    if (r < 0.70) return { type: 'TRAFFIC_GATE', width: 2.2, height: 2.5, depth: 0.5 };
                   return { type: 'WATERTOWER',    width: 2.0, height: 3.0, depth: 2.0 };
   };
 
@@ -136,6 +132,7 @@ export const ObstacleManager: React.FC<ObstacleManagerProps> = ({
           const dist = Math.abs(obsX - pPos.x);
           if (dist >= 1.1 && dist < 2.4) {
             addScore(5);
+            addNearMiss();
             scorePopupEvents.emit({ text: 'NEAR MISS! +5', color: '#e2e8f0' });
             return { ...obs, z: newZ, nearMissChecked: true };
           }

@@ -10,14 +10,14 @@ const CharacterCard = ({
     onClick={onSelect}
     className={`flex-1 rounded-2xl p-4 border-2 transition-all text-center ${
       selected
-        ? 'border-cyan-400 bg-cyan-500/20 scale-105 shadow-[0_0_20px_rgba(34,211,238,0.4)]'
-        : 'border-slate-600 bg-slate-800/60 hover:border-slate-400'
+        ? 'border-yellow-400 bg-yellow-500/15 scale-105 shadow-[0_0_20px_rgba(255,232,31,0.3)]'
+        : 'border-slate-700 bg-slate-900/60 hover:border-yellow-500/50'
     }`}
   >
     <div className="text-5xl mb-2">{emoji}</div>
-    <p className="text-white font-black text-base">{label}</p>
+    <p className="text-yellow-100 font-black text-base" style={{ fontFamily: 'Orbitron, sans-serif' }}>{label}</p>
     <p className="text-slate-400 text-xs mt-1">{desc}</p>
-    {selected && <p className="text-cyan-400 text-xs font-bold mt-2">SELECTED ✓</p>}
+    {selected && <p className="text-yellow-400 text-xs font-bold mt-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>SELECTED ✓</p>}
   </button>
 );
 
@@ -67,25 +67,26 @@ export const GameMenu: React.FC<GameMenuProps> = ({
   muted, onToggleMute, onStart, onShowLeaderboard,
   isConnected, connectedAddress, onOpenWallet,
 }) => (
-  <div className="absolute inset-0 flex flex-col items-center justify-start pt-10 pb-6 overflow-y-auto bg-slate-900/88 pointer-events-auto backdrop-blur-sm gap-4">
-    <button className="absolute top-4 right-4 text-slate-400 hover:text-white text-xl" onClick={onToggleMute}>
+  <div className="absolute inset-0 flex flex-col items-center justify-start pt-8 pb-6 overflow-y-auto bg-black/92 pointer-events-auto backdrop-blur-sm gap-4">
+    <button className="absolute top-4 right-4 text-yellow-400/60 hover:text-yellow-300 text-xl" onClick={onToggleMute}>
       {muted ? '🔇' : '🔊'}
     </button>
 
-    <img src={MASCOT_ASSETS.PLAYING} alt="JOY" className="w-28 h-28 object-contain drop-shadow-[0_0_20px_rgba(34,211,238,0.5)]" />
+    <img src={MASCOT_ASSETS.PLAYING} alt="JOY" className="w-24 h-24 object-contain drop-shadow-[0_0_25px_rgba(255,232,31,0.4)]" />
     <div className="text-center -mt-2">
-      <h1 className="text-5xl font-black text-white leading-tight">MARS</h1>
-      <h1 className="text-4xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent italic">SURFERS</h1>
+      <p className="text-yellow-400/60 text-[10px] tracking-[0.4em] uppercase" style={{ fontFamily: 'Orbitron, sans-serif' }}>A long time ago in a galaxy far, far away…</p>
+      <h1 className="text-5xl font-black text-yellow-400 leading-tight mt-2 drop-shadow-[0_0_20px_rgba(255,232,31,0.5)]" style={{ fontFamily: 'Orbitron, sans-serif' }}>MARS</h1>
+      <h1 className="text-3xl font-black text-yellow-300/90 italic tracking-widest" style={{ fontFamily: 'Orbitron, sans-serif' }}>SURFERS</h1>
     </div>
 
     {highScore > 0 && (
-      <div className="px-5 py-1.5 rounded-full bg-yellow-400/20 border border-yellow-400/50">
-        <span className="text-yellow-400 font-bold text-sm">🏆 BEST: {highScore}</span>
+      <div className="px-5 py-1.5 rounded-full bg-yellow-400/10 border border-yellow-500/40">
+        <span className="text-yellow-400 font-bold text-sm" style={{ fontFamily: 'Orbitron, sans-serif' }}>BEST: {highScore}</span>
       </div>
     )}
 
     <div className="w-full max-w-[320px] flex flex-col gap-2">
-      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider text-center">Choose Character</p>
+      <p className="text-yellow-400/50 text-xs font-bold uppercase tracking-wider text-center" style={{ fontFamily: 'Orbitron, sans-serif' }}>Choose Your Pilot</p>
       <div className="flex gap-3">
         <CharacterCard label="Penguin" emoji="🐧" desc="Space explorer"
           selected={character === 'penguin'} onSelect={() => setCharacter('penguin')} />
@@ -98,13 +99,14 @@ export const GameMenu: React.FC<GameMenuProps> = ({
 
     <button
       onClick={onStart}
-      className="px-12 py-4 bg-cyan-500 hover:bg-cyan-400 hover:scale-105 active:scale-95 text-white font-black rounded-full transition-all text-2xl shadow-[0_0_25px_rgba(6,182,212,0.7)] border border-cyan-300"
+      className="px-12 py-4 bg-yellow-500 hover:bg-yellow-400 hover:scale-105 active:scale-95 text-black font-black rounded-full transition-all text-2xl shadow-[0_0_30px_rgba(255,232,31,0.5)] border-2 border-yellow-300"
+      style={{ fontFamily: 'Orbitron, sans-serif' }}
     >
       RUN
     </button>
 
-    <button onClick={onShowLeaderboard} className="text-slate-300 hover:text-white text-sm underline transition-colors">
-      🏆 View Leaderboard
+    <button onClick={onShowLeaderboard} className="text-yellow-400/60 hover:text-yellow-300 text-sm underline transition-colors" style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '11px' }}>
+      VIEW LEADERBOARD
     </button>
 
     {/* Wallet connect */}
@@ -127,9 +129,9 @@ export const GameMenu: React.FC<GameMenuProps> = ({
       )}
     </div>
 
-    <div className="text-center text-slate-500 text-xs space-y-0.5">
-      <p>← → Lane &nbsp;|&nbsp; ↑ Jump &nbsp;|&nbsp; ↑↑ Double Jump &nbsp;|&nbsp; ↓ Roll</p>
-      <p>🛡 Shield · ⚡ Invincible · 🧲 Magnet · ⏱ Slow-Mo · ⭐ Star=5 coins</p>
+    <div className="text-center text-yellow-400/30 text-[9px] space-y-0.5" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+      <p>← → LANE &nbsp;|&nbsp; ↑ JUMP &nbsp;|&nbsp; ↑↑ DOUBLE JUMP &nbsp;|&nbsp; ↓ ROLL</p>
+      <p>SHIELD · INVINCIBLE · MAGNET · SLOW-MO · STAR=5 COINS</p>
     </div>
   </div>
 );

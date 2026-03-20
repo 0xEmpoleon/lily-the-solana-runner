@@ -62,6 +62,23 @@ const buildDailyChallenge = (): DailyChallenge => {
 
 const MILESTONES = [100, 500, 1000, 2500, 5000];
 
+// ── Run stats ───────────────────────────────────────────────────────────────
+export interface RunStats {
+  nearMisses: number;
+  powerupsCollected: number;
+  maxCombo: number;
+  distanceTraveled: number;
+  zonesReached: string[];
+}
+
+const INITIAL_RUN_STATS: RunStats = {
+  nearMisses: 0,
+  powerupsCollected: 0,
+  maxCombo: 0,
+  distanceTraveled: 0,
+  zonesReached: ['Mars'],
+};
+
 // ── Store ──────────────────────────────────────────────────────────────────
 interface GameState {
   score: number;
@@ -82,10 +99,14 @@ interface GameState {
   dailyChallenge: DailyChallenge;
   milestoneScore: number | null;   // set when score crosses a milestone
   runHistory: number[];            // last 5 run scores
+  runStats: RunStats;
 
   // Actions
   startGame: () => void;
   endGame: () => void;
+  addNearMiss: () => void;
+  addPowerupCollected: () => void;
+  addDistance: (d: number) => void;
   addScore: (points: number) => void;
   addCoin: () => void;
   increaseSpeed: (delta: number) => void;
@@ -119,6 +140,7 @@ export const useGameState = create<GameState>((set, get) => ({
   dailyChallenge: buildDailyChallenge(),
   milestoneScore: null,
   runHistory: loadHistory(),
+  runStats: { ...INITIAL_RUN_STATS },
 
   // ── Game flow ──────────────────────────────────────────────────────────
   startGame: () => set({
@@ -129,6 +151,7 @@ export const useGameState = create<GameState>((set, get) => ({
     activePowerup: null, powerupTimeLeft: 0,
     combo: 0, maxCombo: 0, multiplier: 1,
     milestoneScore: null,
+    runStats: { ...INITIAL_RUN_STATS },
   }),
 
   endGame: () => {
@@ -138,7 +161,10 @@ export const useGameState = create<GameState>((set, get) => ({
     if (newHigh > highScore) saveHighScore(newHigh);
     const newHistory = [finalScore, ...runHistory].slice(0, 5);
     ls.set('mars_history', JSON.stringify(newHistory));
-    set({ gameState: 'GAMEOVER', highScore: newHigh, activePowerup: null, speedScale: 1.0, runHistory: newHistory });
+    set(s => ({
+      gameState: 'GAMEOVER', highScore: newHigh, activePowerup: null, speedScale: 1.0, runHistory: newHistory,
+      runStats: { ...s.runStats, maxCombo: s.maxCombo },
+    }));
   },
 
   addScore: (points) => set(s => {
@@ -208,4 +234,22 @@ export const useGameState = create<GameState>((set, get) => ({
   }),
 
   clearMilestone: () => set({ milestoneScore: null }),
+
+  // ── Run stats ─────────────────────────────────────────────────────────
+  addNearMiss: () => set(s => ({
+    runStats: { ...s.runStats, nearMisses: s.runStats.nearMisses + 1 },
+  })),
+  addPowerupCollected: () => set(s => ({
+    runStats: { ...s.runStats, powerupsCollected: s.runStats.powerupsCollected + 1 },
+  })),
+  addDistance: (d) => {
+    const s = get();
+    const newDist = s.runStats.distanceTraveled + d;
+    const zones: string[] = ['Mars'];
+    if (s.score >= 2000) zones.push('City');
+    if (s.score >= 4000) zones.push('Desert');
+    if (s.score >= 6000) zones.push('Forest');
+    if (s.score >= 8000) zones.push('Space');
+    set({ runStats: { ...s.runStats, distanceTraveled: newDist, zonesReached: zones } });
+  },
 }));

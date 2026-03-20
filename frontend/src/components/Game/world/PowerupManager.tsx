@@ -67,7 +67,7 @@ const PowerupOrb = ({ item, zRef }: { item: PowerupItem; zRef: React.MutableRefO
 
 // ── Manager ────────────────────────────────────────────────────────────────
 export const PowerupManager: React.FC<PowerupManagerProps> = ({ playerPosRef }) => {
-  const { speed, speedScale, gameState, activatePowerup, tickPowerup } = useGameState();
+  const { speed, speedScale, gameState, activatePowerup, tickPowerup, addPowerupCollected } = useGameState();
   const [powerups, setPowerups] = useState<PowerupItem[]>([]);
 
   // Live z-positions stored in a Map — updated every frame via direct mutations,
@@ -134,6 +134,7 @@ export const PowerupManager: React.FC<PowerupManagerProps> = ({ playerPosRef }) 
     if (pickedType) {
       const cfg = POWERUP_CONFIG[pickedType];
       activatePowerup(pickedType, cfg.duration);
+      addPowerupCollected();
       soundEngine.powerup();
       scorePopupEvents.emit({ text: cfg.label, color: cfg.color, big: true });
     }

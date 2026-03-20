@@ -15,12 +15,8 @@ const ATMOSPHERE: Record<ThemeName, {
   space:  { sky: '#00000e', fog: '#00001a', fogNear: 70,  fogFar: 220, ambient: 0.30, ambientColor: '#7777ff' },
 };
 
-function getAtmosphereTheme(score: number): ThemeName {
-  if (score >= 8000) return 'space';
-  if (score >= 6000) return 'forest';
-  if (score >= 4000) return 'desert';
-  if (score >= 2000) return 'city';
-  return 'mars';
+function getAtmosphereTheme(_score: number): ThemeName {
+  return 'space';
 }
 
 const _skyLerp = new THREE.Color();

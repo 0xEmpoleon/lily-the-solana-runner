@@ -13,12 +13,8 @@ const LANE_WIDTH     = 2.5;
 const TRACK_W        = LANE_WIDTH * 3 + 2;
 
 // Score thresholds — single source of truth
-function getTheme(score: number): ThemeName {
-  if (score >= 8000) return 'space';
-  if (score >= 6000) return 'forest';
-  if (score >= 4000) return 'desert';
-  if (score >= 2000) return 'city';
-  return 'mars';
+function getTheme(_score: number): ThemeName {
+  return 'space';
 }
 
 // ── Procedural TrackChunk (mars + space) ──────────────────────────────────────
@@ -267,7 +263,7 @@ const TrackChunk: React.FC<ChunkProps> = ({ theme, groupRef }) => {
 
 // ── Manager ───────────────────────────────────────────────────────────────────
 export const TrackManager: React.FC = () => {
-  const { speed, speedScale, gameState, addScore, score, increaseSpeed } = useGameState();
+  const { speed, speedScale, gameState, addScore, score, increaseSpeed, addDistance } = useGameState();
 
   const [chunks, setChunks] = useState(() =>
     Array.from({ length: VISIBLE_CHUNKS }, (_, i) => ({
@@ -334,7 +330,9 @@ export const TrackManager: React.FC = () => {
     }
 
     // Score: 1 point per 10 units
-    distTraveled.current += effectiveSpeed * delta;
+    const frameDist = effectiveSpeed * delta;
+    distTraveled.current += frameDist;
+    addDistance(frameDist);
     if (distTraveled.current > 10) {
       addScore(1);
       distTraveled.current = 0;

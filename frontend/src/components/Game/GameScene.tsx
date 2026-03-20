@@ -18,6 +18,7 @@ import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { GameHUD } from './ui/GameHUD';
 import { GameMenu } from './ui/GameMenu';
 import { GameOver } from './ui/GameOver';
+import { AsciiSkyBanner } from './world/AsciiSkyBanner';
 
 const MILESTONE_LABELS: Record<number, string> = {
   100:  '🔥 GETTING HOT!',
@@ -52,7 +53,7 @@ const GameScene: React.FC = () => {
     character, setCharacter,
     dailyChallenge, updateChallenge,
     milestoneScore, clearMilestone,
-    runHistory,
+    runHistory, runStats,
   } = useGameState();
 
   const playerPosRef    = useRef(new THREE.Vector3(0, 0, 0));
@@ -73,6 +74,17 @@ const GameScene: React.FC = () => {
 
   const isNewHighScore = gameState === 'GAMEOVER' && Math.floor(score) > 0 && Math.floor(score) >= highScore;
 
+  // Background music
+  useEffect(() => {
+    if (gameState === 'PLAYING') soundEngine.startMusic('space');
+    else if (gameState === 'GAMEOVER' || gameState === 'MENU') soundEngine.stopMusic();
+  }, [gameState]);
+
+  useEffect(() => {
+    if (gameState !== 'PLAYING') return;
+    soundEngine.updateMusicZone('space');
+  }, [score, gameState]);
+
   // Milestone banner
   useEffect(() => {
     if (!milestoneScore) return;
@@ -92,16 +104,21 @@ const GameScene: React.FC = () => {
     prevCompleted.current = dailyChallenge.completed;
   }, [dailyChallenge.completed, gameState]);
 
-  // Keyboard shortcut to start
+  // Keyboard shortcut to start — delay registration to prevent page-load keypresses from triggering
+  const readyRef = useRef(false);
   useEffect(() => {
+    readyRef.current = false;
+    const delay = setTimeout(() => { readyRef.current = true; }, 600);
     const handler = (e: KeyboardEvent) => {
+      if (!readyRef.current) return;
       if ((e.key === ' ' || e.key === 'Enter') && (gameState === 'MENU' || gameState === 'GAMEOVER')) {
+        e.preventDefault();
         if (gameState === 'MENU' && shouldShowTutorial()) setShowTutorial(true);
         else startGame();
       }
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    return () => { clearTimeout(delay); window.removeEventListener('keydown', handler); };
   }, [gameState, startGame]);
 
   useEffect(() => { if (gameState === 'PLAYING') setSubmitted(false); }, [gameState]);
@@ -121,13 +138,7 @@ const GameScene: React.FC = () => {
 
   // Theme transition banner
   const prevThemeRef = useRef('mars');
-  const getThemeLocal = (s: number) => {
-    if (s >= 8000) return 'space';
-    if (s >= 6000) return 'forest';
-    if (s >= 4000) return 'desert';
-    if (s >= 2000) return 'city';
-    return 'mars';
-  };
+  const getThemeLocal = (_s: number) => 'space';
   const THEME_BANNERS: Record<string, string> = {
     city: '🌆 ENTERING CITY', desert: '🌵 ENTERING DESERT',
     forest: '🌲 ENTERING FOREST', space: '🚀 ENTERING SPACE',
@@ -153,6 +164,7 @@ const GameScene: React.FC = () => {
         <SceneAtmosphere />
         <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]} />
         <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade speed={activePowerup === 'slowmo' ? 0.2 : 1} />
+        <AsciiSkyBanner />
 
         {gameState === 'PLAYING' && (
           <Suspense fallback={null}>
@@ -206,6 +218,7 @@ const GameScene: React.FC = () => {
             onShowLeaderboard={() => setShowLeaderboard(true)}
             isConnected={isConnected} connectedAddress={connectedAddress}
             onOpenWallet={openWallet}
+            runStats={runStats}
           />
         )}
       </div>
