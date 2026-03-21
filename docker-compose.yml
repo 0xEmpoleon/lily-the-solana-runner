@@ -3,19 +3,22 @@ version: '3.8'
 services:
   mongodb:
     image: mongo:latest
-    container_name: mars-mongodb
+    container_name: lily-mongodb
     ports:
       - "27020:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASS:-changeme}
     volumes:
       - mongodb_data:/data/db
     networks:
-      - mars-network
+      - lily-network
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: mars-backend
+    container_name: lily-backend
     ports:
       - "8055:8052"
     env_file:
@@ -23,13 +26,13 @@ services:
     depends_on:
       - mongodb
     networks:
-      - mars-network
+      - lily-network
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: mars-frontend
+    container_name: lily-frontend
     ports:
       - "4043:3000"
     env_file:
@@ -37,10 +40,10 @@ services:
     depends_on:
       - backend
     networks:
-      - mars-network
+      - lily-network
 
 networks:
-  mars-network:
+  lily-network:
     driver: bridge
 
 volumes:

@@ -1,14 +1,20 @@
-FROM node:22-alpine
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
 COPY package*.json ./
-
 RUN npm install
 
 COPY . .
+RUN npm run build
+
+FROM node:22-alpine
+
+WORKDIR /app
+RUN npm install -g serve
+
+COPY --from=build /app/dist ./dist
 
 EXPOSE 3000
 
-# Vite default port is 5173, but we can configure it to 3000 for consistency
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["serve", "-s", "dist", "-l", "3000"]

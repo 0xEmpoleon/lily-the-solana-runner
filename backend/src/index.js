@@ -7,8 +7,38 @@ const app = express();
 const PORT = process.env.PORT || 8052;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://mongodb:27017/jupitar';
 
-app.use(cors());
-app.use(express.json());
+const MAX_SCORE = 100000;
+const MAX_COINS = 10000;
+
+// ── CORS — restrict to known origins ────────────────────────────────────────
+const ALLOWED_ORIGINS = [
+  'https://lily-the-solana-runner.vercel.app',
+  'https://lily-surfing-on-solana.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+app.use(cors({ origin: ALLOWED_ORIGINS }));
+app.use(express.json({ limit: '16kb' }));
+
+// ── Simple in-memory rate limiter ───────────────────────────────────────────
+const RATE_WINDOW = 60 * 1000;
+const RATE_MAX = 10;
+const ipHits = new Map();
+
+function rateLimit(req, res, next) {
+  const ip = req.headers['x-forwarded-for'] || req.ip;
+  const now = Date.now();
+  const record = ipHits.get(ip);
+  if (!record || now - record.start > RATE_WINDOW) {
+    ipHits.set(ip, { start: now, count: 1 });
+    return next();
+  }
+  record.count++;
+  if (record.count > RATE_MAX) {
+    return res.status(429).json({ error: 'Too many requests. Try again later.' });
+  }
+  next();
+}
 
 // MongoDB Connection
 mongoose.connect(MONGODB_URI)
@@ -18,8 +48,8 @@ mongoose.connect(MONGODB_URI)
 // ── Leaderboard Schema ──────────────────────────────────────────────────────
 const scoreSchema = new mongoose.Schema({
   name:      { type: String, default: 'Anonymous', maxlength: 24, trim: true },
-  score:     { type: Number, required: true, min: 0 },
-  coins:     { type: Number, default: 0, min: 0 },
+  score:     { type: Number, required: true, min: 0, max: MAX_SCORE },
+  coins:     { type: Number, default: 0, min: 0, max: MAX_COINS },
   wallet:    { type: String, default: '', maxlength: 64, trim: true },
   createdAt: { type: Date, default: Date.now },
 });
@@ -31,21 +61,32 @@ const Score = mongoose.model('Score', scoreSchema);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Mars Backend is running', timestamp: new Date() });
+  res.json({ status: 'ok', message: 'Lily Backend is running', timestamp: new Date() });
 });
 
 // Submit a score
-app.post('/api/scores', async (req, res) => {
+app.post('/api/scores', rateLimit, async (req, res) => {
   try {
     const { name, score, coins, wallet } = req.body;
-    if (typeof score !== 'number' || score < 0) {
+
+    if (typeof score !== 'number' || !Number.isFinite(score) || score < 0 || score > MAX_SCORE) {
       return res.status(400).json({ error: 'Invalid score' });
     }
+    if (coins !== undefined && (typeof coins !== 'number' || !Number.isFinite(coins) || coins < 0 || coins > MAX_COINS)) {
+      return res.status(400).json({ error: 'Invalid coins' });
+    }
+    if (name !== undefined && typeof name !== 'string') {
+      return res.status(400).json({ error: 'Invalid name' });
+    }
+    if (wallet !== undefined && typeof wallet !== 'string') {
+      return res.status(400).json({ error: 'Invalid wallet' });
+    }
+
     const entry = await Score.create({
-      name:   (name  || 'Anonymous').slice(0, 24),
+      name:   String(name || 'Anonymous').slice(0, 24),
       score:  Math.floor(score),
-      coins:  Math.floor(coins || 0),
-      wallet: (wallet || '').slice(0, 64),
+      coins:  Math.floor(Number(coins) || 0),
+      wallet: String(wallet || '').slice(0, 64),
     });
     res.status(201).json({ id: entry._id, message: 'Score saved' });
   } catch (err) {
@@ -58,7 +99,7 @@ app.post('/api/scores', async (req, res) => {
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const entries = await Score
-      .find({}, 'name score coins wallet createdAt')
+      .find({}, 'name score coins createdAt')
       .sort({ score: -1 })
       .limit(20)
       .lean();
