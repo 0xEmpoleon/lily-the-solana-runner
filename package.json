@@ -1,8 +1,9 @@
 {
-  "name": "mars-subway-runner",
+  "name": "lily-the-solana-runner",
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "mongoose": "^8.4.0"
+    "mongoose": "^8.4.0",
+    "viem": "^2.21.0"
   }
 }

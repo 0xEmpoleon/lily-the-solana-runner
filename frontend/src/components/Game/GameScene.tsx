@@ -11,10 +11,11 @@ import { ParticleSystem } from './world/ParticleSystem';
 import { useGameState } from './store/useGameState';
 import { SceneAtmosphere } from './world/SceneAtmosphere';
 import { Tutorial, shouldShowTutorial } from './Tutorial';
-import { Leaderboard, submitScore } from './Leaderboard';
+import { Leaderboard, submitScore, requestSession, buildSignMessage } from './Leaderboard';
 import { soundEngine } from '../../utils/sound';
 import { scorePopupEvents } from '../../utils/scorePopupEvents';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
+import { useSignMessage } from 'wagmi';
 import { GameHUD } from './ui/GameHUD';
 import { GameMenu } from './ui/GameMenu';
 import { GameOver } from './ui/GameOver';
@@ -68,6 +69,8 @@ const GameScene: React.FC = () => {
 
   const { open: openWallet }                          = useAppKit();
   const { address: connectedAddress, isConnected }    = useAppKitAccount();
+  const { signMessageAsync }                          = useSignMessage();
+  const sessionTokenRef = useRef<string | null>(null);
 
   useEffect(() => { setWalletAddr(connectedAddress ?? ''); }, [connectedAddress]);
 
@@ -113,7 +116,10 @@ const GameScene: React.FC = () => {
       if ((e.key === ' ' || e.key === 'Enter') && (gameState === 'MENU' || gameState === 'GAMEOVER')) {
         e.preventDefault();
         if (gameState === 'MENU' && shouldShowTutorial()) setShowTutorial(true);
-        else startGame();
+        else {
+          startGame();
+          requestSession().then(token => { sessionTokenRef.current = token; });
+        }
       }
     };
     window.addEventListener('keydown', handler);
@@ -125,13 +131,33 @@ const GameScene: React.FC = () => {
   const handleStart = () => {
     if (gameState === 'MENU' && shouldShowTutorial()) { setShowTutorial(true); return; }
     startGame();
+    requestSession().then(token => { sessionTokenRef.current = token; });
   };
 
   const handleSubmit = async () => {
     if (submitted) return;
     setSubmitted(true);
-    await submitScore({ name: playerName || 'Anonymous', score: Math.floor(score), coins, wallet: walletAddr });
-    updateChallenge('score', Math.floor(score));
+
+    const finalScore = Math.floor(score);
+    const token = sessionTokenRef.current || '';
+
+    let signature = '';
+    if (isConnected && connectedAddress && token) {
+      try {
+        const message = buildSignMessage(finalScore, coins, token);
+        signature = await signMessageAsync({ message });
+      } catch { /* user rejected or wallet error — submit without signature */ }
+    }
+
+    await submitScore({
+      name: playerName || 'Anonymous',
+      score: finalScore,
+      coins,
+      wallet: signature ? walletAddr : '',
+      sessionToken: token,
+      signature,
+    });
+    updateChallenge('score', finalScore);
     updateChallenge('combo', useGameState.getState().maxCombo);
   };
 
@@ -222,7 +248,7 @@ const GameScene: React.FC = () => {
         )}
       </div>
 
-      {showTutorial    && <Tutorial    onDismiss={() => { setShowTutorial(false); startGame(); }} />}
+      {showTutorial    && <Tutorial    onDismiss={() => { setShowTutorial(false); startGame(); requestSession().then(t => { sessionTokenRef.current = t; }); }} />}
       {showLeaderboard && <Leaderboard onClose={() => setShowLeaderboard(false)} />}
     </div>
   );

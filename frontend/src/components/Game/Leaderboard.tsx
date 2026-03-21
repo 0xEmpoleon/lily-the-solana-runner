@@ -107,12 +107,28 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
   );
 };
 
+/** Request a game session token from the server */
+export const requestSession = async (): Promise<string | null> => {
+  try {
+    const res = await fetch(`${API}/api/session`, { method: 'POST' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.token ?? null;
+  } catch { return null; }
+};
+
+/** Build the message the wallet must sign */
+export const buildSignMessage = (score: number, coins: number, sessionToken: string): string =>
+  `Lily Runner Score Submission\nScore: ${score}\nCoins: ${coins}\nSession: ${sessionToken}`;
+
 /** Submit a score to the backend */
 export const submitScore = async (payload: {
   name: string;
   score: number;
   coins: number;
   wallet: string;
+  sessionToken: string;
+  signature: string;
 }) => {
   try {
     await fetch(`${API}/api/scores`, {
