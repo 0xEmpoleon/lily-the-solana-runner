@@ -11,13 +11,9 @@
 
 // ── 2D Mascot images ──────────────────────────────────────────────────────────
 export const MASCOT_ASSETS = {
-  PLAYING:      '/mascot/PLAYING JOY.png',
-  RUNNING:      '/mascot/RUNNING.png',
-  JUMP:         '/mascot/JUMP.png',
-  BETTER_LUCK:  '/mascot/Better luck.png',
-  REWARD:       '/mascot/NFTHAPPY reward.png',
-  THUMBS_UP:    '/mascot/4 thumbs up.png',
-  HODL:         '/mascot/HODL.png',
+  RUNNING:      '/mascot/RUNNING.webp',
+  BETTER_LUCK:  '/mascot/Better luck.webp',
+  REWARD:       '/mascot/NFTHAPPY reward.webp',
 } as const;
 
 // ── 3D Model paths ────────────────────────────────────────────────────────────

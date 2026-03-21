@@ -50,7 +50,7 @@ export const GameMenu: React.FC<GameMenuProps> = ({
       {muted ? '🔇' : '🔊'}
     </button>
 
-    <img src="/mascot/lily-wizard.png" alt="Lily" className="w-32 h-32 object-contain drop-shadow-[0_0_25px_rgba(20,241,149,0.5)]" />
+    <img src="/mascot/lily-wizard.webp" alt="Lily" className="w-32 h-32 object-contain drop-shadow-[0_0_25px_rgba(20,241,149,0.5)]" />
     <div className="text-center -mt-2">
       <p className="text-[#14F195]/60 text-[10px] tracking-[0.4em] uppercase" style={{ fontFamily: 'Orbitron, sans-serif' }}>Surfing the blockchain at light speed…</p>
       <h1 className="text-5xl font-black leading-tight mt-2 drop-shadow-[0_0_20px_rgba(153,69,255,0.5)]" style={{ fontFamily: 'Orbitron, sans-serif', background: 'linear-gradient(135deg, #9945FF, #14F195)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LILY</h1>

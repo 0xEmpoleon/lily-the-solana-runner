@@ -12,11 +12,12 @@ if (!import.meta.env.VITE_REOWN_PROJECT_ID) {
   console.warn('[Reown] VITE_REOWN_PROJECT_ID is not set. Wallet connection will not work.');
 }
 
+const origin = typeof window !== 'undefined' ? window.location.origin : 'https://lily-the-solana-runner.vercel.app';
 const metadata = {
-  name: 'Mars Subway Runner',
-  description: 'An epic 3D Mars-themed endless runner',
-  url: typeof window !== 'undefined' ? window.location.origin : 'https://mars-subway-runner.vercel.app',
-  icons: [`${typeof window !== 'undefined' ? window.location.origin : 'https://mars-subway-runner.vercel.app'}${MASCOT_ASSETS.RUNNING}`],
+  name: 'Lily the Solana Runner',
+  description: 'An epic 3D Solana-themed endless runner',
+  url: origin,
+  icons: [`${origin}${MASCOT_ASSETS.RUNNING}`],
 };
 
 export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [mainnet];
